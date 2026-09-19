@@ -8,10 +8,8 @@ import {
   CheckCircle,
   Navigation,
   RotateCcw,
-  Upload,
   RefreshCw,
   Crosshair,
-  Sparkles,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -26,16 +24,15 @@ interface AttendanceModalProps {
   onSuccess: () => void;
 }
 
-// Haversine formula to compute distance in meters
 function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
 }
@@ -58,15 +55,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   const [isOutside, setIsOutside] = useState(false);
   const [workType, setWorkType] = useState<"WFO" | "WFH">("WFO");
 
-  // Camera state
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
 
-  // GPS state
   const [isLocating, setIsLocating] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -74,24 +68,19 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Live digital clock ticker
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Compute live distance from office location
   const currentDistance = computeDistance(latitude, longitude, defaultLat, defaultLng);
   const maxRadius = policy?.geofenceRadiusMeters || 150;
   const isWithinGeofence = currentDistance <= maxRadius;
 
-  // Stop camera helper
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch (e) {}
+        try { track.stop(); } catch (e) {}
       });
       streamRef.current = null;
     }
@@ -102,33 +91,50 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     setIsStartingCamera(false);
   };
 
-  // Start camera helper
   const startCamera = async () => {
     setCameraError(null);
     setIsStartingCamera(true);
-    stopCamera();
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
 
     try {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        setCameraError("Browser tidak mendukung WebRTC Camera. Gunakan tombol 'Pilih Foto' di bawah.");
+        setCameraError("Browser ini tidak mendukung akses kamera.");
         setIsStartingCamera(false);
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
+          audio: false,
+        });
+      } catch (e) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+      }
 
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
+
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("webkit-playsinline", "true");
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.log("Autoplay deferred:", playErr);
+        }
       }
+
       setIsCameraActive(true);
       setIsStartingCamera(false);
     } catch (err: any) {
@@ -136,18 +142,30 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       setIsStartingCamera(false);
       setIsCameraActive(false);
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setCameraError("Izin kamera ditolak. Silakan izinkan akses kamera di setelan browser.");
+        setCameraError("Izin kamera ditolak. Silakan klik ikon gembok di samping alamat web untuk mengizinkan kamera.");
       } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-        setCameraError("Perangkat kamera tidak ditemukan pada laptop/HP ini.");
+        setCameraError("Kamera tidak ditemukan pada perangkat ini.");
       } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
         setCameraError("Kamera sedang digunakan oleh aplikasi lain.");
       } else {
-        setCameraError("Gagal mengaktifkan kamera: " + (err.message || "Kesalahan tidak diketahui"));
+        setCameraError("Gagal menyalakan kamera: " + (err.message || "Kesalahan tidak diketahui"));
       }
     }
   };
 
-  // Lifecycle: open/close camera
+  useEffect(() => {
+    if (videoRef.current && streamRef.current && !photoData) {
+      const video = videoRef.current;
+      if (video.srcObject !== streamRef.current) {
+        video.srcObject = streamRef.current;
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("webkit-playsinline", "true");
+        video.play().catch(() => {});
+      }
+    }
+  }, [isCameraActive, photoData]);
+
   useEffect(() => {
     if (isOpen) {
       setError("");
@@ -164,32 +182,31 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     };
   }, [isOpen, policy?.isSelfieRequired]);
 
-  // Capture frame to canvas
   const capturePhoto = () => {
     if (!videoRef.current) return;
     try {
       const video = videoRef.current;
-      const width = video.videoWidth || 480;
-      const height = video.videoHeight || 360;
-
+      const width = video.videoWidth || 640;
+      const height = video.videoHeight || 480;
       const canvas = document.createElement("canvas");
-      canvas.width = 480;
-      canvas.height = Math.round((height / width) * 480);
+      const targetWidth = Math.min(width, 640);
+      const targetHeight = Math.round((height / width) * targetWidth);
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        // Mirror horizontally to match selfie preview
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Watermark: timestamp and lat/long
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
         ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
         ctx.fillStyle = "#ffffff";
-        ctx.font = "10px monospace";
+        ctx.font = "11px monospace";
         ctx.fillText(
-          `${new Date().toLocaleTimeString("id-ID")} • ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          new Date().toLocaleTimeString("id-ID") + " | " + latitude.toFixed(4) + ", " + longitude.toFixed(4),
           8,
           canvas.height - 8
         );
@@ -204,56 +221,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     }
   };
 
-  // Retake photo
   const retakePhoto = () => {
     setPhotoData(null);
     startCamera();
   };
 
-  // Fallback: upload from gallery / camera
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setPhotoData(ev.target.result as string);
-          stopCamera();
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Fallback: use demo avatar photo
-  const useDemoPhoto = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 320;
-    canvas.height = 320;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const grad = ctx.createLinearGradient(0, 0, 320, 320);
-      grad.addColorStop(0, "#0f766e");
-      grad.addColorStop(1, "#115e59");
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 320, 320);
-
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 26px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("SELFIE DEMO", 160, 140);
-      ctx.font = "14px monospace";
-      ctx.fillText(new Date().toLocaleTimeString("id-ID"), 160, 175);
-      ctx.font = "11px sans-serif";
-      ctx.fillStyle = "#99f6e4";
-      ctx.fillText("Verifikasi Kehadiran BASE HRIS", 160, 205);
-
-      setPhotoData(canvas.toDataURL("image/jpeg", 0.8));
-      stopCamera();
-    }
-  };
-
-  // Real GPS detection
   const detectCurrentLocation = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("Browser tidak mendukung GPS Geolocation.");
@@ -274,7 +246,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     );
   };
 
-  // Simulation toggle
   const toggleLocationSimulation = (simulateOutside: boolean) => {
     setIsOutside(simulateOutside);
     if (simulateOutside) {
@@ -297,11 +268,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     setSuccessMsg("");
 
     try {
-      const endpoint =
-        type === "checkin"
-          ? "/api/v1/attendance/checkin"
-          : "/api/v1/attendance/checkout";
-
+      const endpoint = type === "checkin" ? "/api/v1/attendance/checkin" : "/api/v1/attendance/checkout";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -402,13 +369,40 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
             </div>
 
             {/* Video Viewport / Photo Preview */}
-            <div className="relative w-full aspect-[4/3] max-h-60 bg-black rounded-xl overflow-hidden flex items-center justify-center border border-slate-700 shadow-inner">
-              {photoData ? (
-                // Captured Photo
+            <div className="relative w-full aspect-[4/3] max-h-64 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-700 shadow-inner">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedMetadata={() => {
+                  videoRef.current?.play().catch(() => {});
+                }}
+                className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-200 ${
+                  !photoData && isCameraActive ? "opacity-100 block" : "opacity-0 hidden pointer-events-none"
+                }`}
+              />
+
+              {/* Face outline guide over live video */}
+              {!photoData && isCameraActive && (
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-36 h-48 rounded-[50%] border-2 border-dashed border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
+                  </div>
+                  <div className="absolute bottom-2.5 inset-x-0 text-center pointer-events-none">
+                    <span className="bg-black/70 text-teal-200 text-[10px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                      Posisikan wajah Anda di dalam lingkaran
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Captured Photo Preview */}
+              {photoData && (
                 <div className="relative w-full h-full">
                   <img
                     src={photoData}
-                    alt="Selfie Berhasil Diambil"
+                    alt="Hasil Foto Selfie"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-2.5 right-2.5 bg-emerald-600 text-white rounded-full px-2.5 py-1 shadow-lg flex items-center space-x-1 text-[11px] font-bold">
@@ -416,49 +410,22 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                     <span>Foto Siap</span>
                   </div>
                 </div>
-              ) : isCameraActive ? (
-                // Live Stream
-                <div className="relative w-full h-full">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
-                  {/* Face outline guide */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-36 h-44 rounded-[50%] border-2 border-dashed border-teal-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
-                  </div>
-                  <div className="absolute bottom-2.5 inset-x-0 text-center pointer-events-none">
-                    <span className="bg-black/70 text-teal-200 text-[10px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
-                      Posisikan wajah Anda di dalam lingkaran
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                // Loading or Error Fallback
+              )}
+
+              {/* Loading or Error Fallback when camera is not ready */}
+              {!photoData && !isCameraActive && (
                 <div className="p-4 flex flex-col items-center justify-center text-center space-y-2.5">
                   {cameraError ? (
                     <>
                       <AlertCircle className="w-8 h-8 text-rose-400" />
                       <p className="text-xs text-rose-200 max-w-xs">{cameraError}</p>
-                      <div className="flex flex-wrap gap-2 justify-center pt-1">
-                        <button
-                          type="button"
-                          onClick={startCamera}
-                          className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold shadow"
-                        >
-                          Nyalakan Ulang Kamera
-                        </button>
-                        <button
-                          type="button"
-                          onClick={useDemoPhoto}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-600"
-                        >
-                          Gunakan Foto Demo
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold shadow active:scale-95 transition-all"
+                      >
+                        Nyalakan Ulang Kamera
+                      </button>
                     </>
                   ) : (
                     <>
@@ -477,13 +444,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
               )}
             </div>
 
-            {/* Controls Bar */}
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {/* Controls Bar: Shutter & Retake ONLY (No Pilih Foto) */}
+            <div className="mt-3 flex items-center justify-center gap-2">
               {!photoData && isCameraActive && (
                 <button
                   type="button"
                   onClick={capturePhoto}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-teal-500/25 active:scale-95 transition-all"
+                  className="flex items-center space-x-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-teal-500/25 active:scale-95 transition-all"
                 >
                   <Camera className="w-4 h-4" />
                   <span>Ambil Foto Selfie</span>
@@ -494,33 +461,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 <button
                   type="button"
                   onClick={retakePhoto}
-                  className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition-colors"
+                  className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700 active:scale-95 transition-all"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Foto Ulang</span>
-                </button>
-              )}
-
-              <label className="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer transition-colors">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Pilih Foto</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-
-              {!photoData && !isCameraActive && (
-                <button
-                  type="button"
-                  onClick={useDemoPhoto}
-                  className="flex items-center space-x-1 bg-teal-950/80 hover:bg-teal-900 text-teal-300 px-3.5 py-2 rounded-xl text-xs font-semibold border border-teal-800/50"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Foto Demo</span>
                 </button>
               )}
             </div>
@@ -536,12 +480,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
             </span>
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                isWithinGeofence
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-rose-100 text-rose-700"
+                isWithinGeofence ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
               }`}
             >
-              {isWithinGeofence ? `✓ Valid (${currentDistance}m)` : `✗ Luar Radius (${currentDistance}m)`}
+              {isWithinGeofence ? `? Valid (${currentDistance}m)` : `? Luar Radius (${currentDistance}m)`}
             </span>
           </div>
 
@@ -568,7 +510,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                   : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
               }`}
             >
-              📍 Di Kantor (0m)
+              ?? Di Kantor (0m)
             </button>
             <button
               type="button"
@@ -579,7 +521,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                   : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
               }`}
             >
-              🚗 Luar Kantor (5km)
+              ?? Luar Kantor (5km)
             </button>
           </div>
         </div>
