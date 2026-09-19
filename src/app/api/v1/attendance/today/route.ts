@@ -14,17 +14,36 @@ export async function GET() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    // Get today's attendance record
-    const attendance = await db.attendance.findFirst({
+    // 1. First check for active open shift (checked in, not checked out)
+    let attendance = await db.attendance.findFirst({
       where: {
         companyId: session.companyId,
         employeeId: session.employeeId,
-        date: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
+        checkInTime: { not: null },
+        checkOutTime: null,
       },
+      orderBy: { checkInTime: "desc" },
     });
+
+    // 2. If no open shift, check for completed attendance today or in the last 20 hours
+    if (!attendance) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      attendance = await db.attendance.findFirst({
+        where: {
+          companyId: session.companyId,
+          employeeId: session.employeeId,
+          OR: [
+            { date: { gte: todayStart, lte: todayEnd } },
+            { checkInTime: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) } },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     // Get company policy
     const policy = await db.attendancePolicy.findFirst({

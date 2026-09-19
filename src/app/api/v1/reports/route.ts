@@ -13,7 +13,15 @@ export async function GET() {
       db.employee.count({ where: { companyId: session.companyId, deletedAt: null } }),
       db.attendance.findMany({
         where: { companyId: session.companyId },
-        include: { employee: true },
+        include: {
+          employee: {
+            include: {
+              department: true,
+              position: true,
+            },
+          },
+        },
+        orderBy: { date: "desc" },
       }),
       db.leaveRequest.findMany({
         where: { companyId: session.companyId },
@@ -42,7 +50,7 @@ export async function GET() {
         totalLeavesApproved: leaveRequests.filter((l) => l.status === "APPROVED").length,
         totalOvertimeHours,
       },
-      records: attendanceRecords.slice(0, 50),
+      records: attendanceRecords,
     });
   } catch (err: any) {
     return NextResponse.json({ error: "Gagal memuat rekap laporan." }, { status: 500 });
