@@ -164,7 +164,11 @@ async function main() {
     }
   }
 
-  const defaultPassword = await bcrypt.hash("password123", 10);
+  const hrPassKanaya = await bcrypt.hash("KanayaHR#2026", 10);
+  const mgrPassKanaya = await bcrypt.hash("KanayaMgr#2026", 10);
+  const empPassKanaya = await bcrypt.hash("KanayaEmp#2026", 10);
+  const hrPassAbc = await bcrypt.hash("AbcPerkasa#2026", 10);
+  const trialPass = await bcrypt.hash("TrialClient#2026", 10);
   const adminPassword = await bcrypt.hash("admin123", 10);
 
   // 4. SUPER ADMIN USER
@@ -287,7 +291,7 @@ async function main() {
     data: {
       companyId: company1.id,
       email: "hr@kanaya.com",
-      passwordHash: defaultPassword,
+      passwordHash: hrPassKanaya,
       name: "Budi Santoso",
       roles: { create: { roleId: roles["HR_ADMIN"].id } },
     },
@@ -328,7 +332,7 @@ async function main() {
     data: {
       companyId: company1.id,
       email: "manager@kanaya.com",
-      passwordHash: defaultPassword,
+      passwordHash: mgrPassKanaya,
       name: "Dewi Sartika",
       roles: { create: { roleId: roles["MANAGER"].id } },
     },
@@ -366,7 +370,7 @@ async function main() {
     data: {
       companyId: company1.id,
       email: "employee@kanaya.com",
-      passwordHash: defaultPassword,
+      passwordHash: empPassKanaya,
       name: "Rian Pratama",
       roles: { create: { roleId: roles["EMPLOYEE"].id } },
     },
@@ -576,7 +580,7 @@ async function main() {
     data: {
       companyId: company2.id,
       email: "hr@abc.com",
-      passwordHash: defaultPassword,
+      passwordHash: hrPassAbc,
       name: "Ahmad Yani",
       roles: { create: { roleId: roles["HR_ADMIN"].id } },
     },
@@ -590,6 +594,115 @@ async function main() {
       lastName: "Yani",
       locationId: locSby2.id,
       joinDate: new Date("2022-05-01"),
+      employmentStatus: "PERMANENT",
+      employmentType: "FULL_TIME",
+    },
+  });
+
+  // 7. SEED TENANT 3: "PT Demo Solusi Pratama" (Client Trial Sandbox)
+  const company3 = await prisma.company.create({
+    data: {
+      name: "PT Demo Solusi Pratama (Client Trial)",
+      code: "trial",
+      domain: "trial.hris.local",
+      subscriptionPlan: "ENTERPRISE",
+      status: "ACTIVE",
+      branding: {
+        create: {
+          appName: "Demo Solusi HR",
+          logoUrl: "/branding/demo-logo.svg",
+          primaryColor: "#0284c7", // Sky 600
+          secondaryColor: "#38bdf8", // Sky 400
+          footerText: "© 2026 PT Demo Solusi Pratama (Trial Sandbox)",
+        },
+      },
+      settings: {
+        create: {
+          timezone: "Asia/Jakarta",
+          currency: "IDR",
+          dateFormat: "YYYY-MM-DD",
+          locale: "id",
+        },
+      },
+    },
+  });
+
+  for (const f of features) {
+    await prisma.companyFeature.create({
+      data: { companyId: company3.id, featureId: f, isEnabled: true },
+    });
+  }
+
+  const locDemo3 = await prisma.location.create({
+    data: {
+      companyId: company3.id,
+      name: "Kantor Pusat Demo (Thamrin)",
+      address: "Jl. M.H. Thamrin No. 1, Jakarta Pusat",
+      latitude: -6.1944,
+      longitude: 106.8229,
+      radiusMeters: 500,
+    },
+  });
+
+  await prisma.attendancePolicy.create({
+    data: {
+      companyId: company3.id,
+      name: "Kebijakan Kantor Demo",
+      workStartTime: "08:00",
+      workEndTime: "17:00",
+      lateToleranceMinutes: 30,
+      geofenceRadiusMeters: 500,
+      isSelfieRequired: true,
+      isGpsRequired: true,
+      breakDurationMinutes: 60,
+    },
+  });
+
+  // Client Trial Admin (HR Admin role)
+  const trialAdminUser = await prisma.user.create({
+    data: {
+      companyId: company3.id,
+      email: "klien@demohris.com",
+      passwordHash: trialPass,
+      name: "Klien Trial Admin",
+      roles: { create: { roleId: roles["HR_ADMIN"].id } },
+    },
+  });
+
+  await prisma.employee.create({
+    data: {
+      companyId: company3.id,
+      userId: trialAdminUser.id,
+      employeeIdNumber: "TRL-001",
+      firstName: "Klien",
+      lastName: "Trial Admin",
+      locationId: locDemo3.id,
+      joinDate: new Date("2026-01-01"),
+      employmentStatus: "PERMANENT",
+      employmentType: "FULL_TIME",
+    },
+  });
+
+  // Client Trial Employee (Employee role)
+  const trialEmpUser = await prisma.user.create({
+    data: {
+      companyId: company3.id,
+      email: "karyawan@demohris.com",
+      passwordHash: trialPass,
+      name: "Budi Karyawan Demo",
+      roles: { create: { roleId: roles["EMPLOYEE"].id } },
+    },
+  });
+
+  await prisma.employee.create({
+    data: {
+      companyId: company3.id,
+      userId: trialEmpUser.id,
+      employeeIdNumber: "TRL-002",
+      firstName: "Budi",
+      lastName: "Karyawan Demo",
+      locationId: locDemo3.id,
+      joinDate: new Date("2026-01-01"),
       employmentStatus: "PERMANENT",
       employmentType: "FULL_TIME",
     },

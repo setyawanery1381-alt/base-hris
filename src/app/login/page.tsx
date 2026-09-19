@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [email, setEmail] = useState("employee@kanaya.com");
-  const [password, setPassword] = useState("password123");
+  const [password, setPassword] = useState("KanayaEmp#2026");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -56,7 +56,7 @@ export default function LoginPage() {
     }
   };
 
-  const setTestAccount = (userEmail: string, userPass: string = "password123") => {
+  const setTestAccount = (userEmail: string, userPass: string = "KanayaEmp#2026") => {
     setEmail(userEmail);
     setPassword(userPass);
     setErrorMessage("");
@@ -125,13 +125,34 @@ export default function LoginPage() {
 
           {/* Quick Demo Credentials Pill Bar */}
           <div className="mt-8 pt-6 border-t border-slate-100">
+            {/* Client Trial Quick Button */}
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setTestAccount("klien@demohris.com", "TrialClient#2026")}
+                className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 hover:border-blue-400 hover:shadow-sm transition-all text-left flex items-center justify-between"
+              >
+                <div>
+                  <span className="flex items-center space-x-1.5 font-bold text-blue-900 text-xs">
+                    <span>🚀 Akun Klien Trial (Aman Dicoba)</span>
+                  </span>
+                  <span className="block text-[11px] text-blue-600 mt-0.5">
+                    PT Demo Solusi Pratama • Data Terisolasi
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold shadow-xs">
+                  Coba Demo
+                </span>
+              </button>
+            </div>
+
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 text-center">
-              Akses Cepat Pengujian (1-Click Fill)
+              Akses Karyawan & Admin Terdaftar
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
-                onClick={() => setTestAccount("employee@kanaya.com")}
+                onClick={() => setTestAccount("employee@kanaya.com", "KanayaEmp#2026")}
                 className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
               >
                 <span className="block font-semibold text-slate-700">📱 Karyawan</span>
@@ -140,7 +161,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => setTestAccount("hr@kanaya.com")}
+                onClick={() => setTestAccount("hr@kanaya.com", "KanayaHR#2026")}
                 className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
               >
                 <span className="block font-semibold text-slate-700">👔 HR Admin</span>
@@ -149,7 +170,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => setTestAccount("manager@kanaya.com")}
+                onClick={() => setTestAccount("manager@kanaya.com", "KanayaMgr#2026")}
                 className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
               >
                 <span className="block font-semibold text-slate-700">✍️ Manager</span>
@@ -158,7 +179,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => setTestAccount("hr@abc.com")}
+                onClick={() => setTestAccount("hr@abc.com", "AbcPerkasa#2026")}
                 className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
               >
                 <span className="block font-semibold text-slate-700">🏢 Tenant 2 (ABC)</span>
