@@ -19,6 +19,8 @@ function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
+const DAY_MAP = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
 export async function POST(req: Request) {
   try {
     const session = await getSession();
@@ -42,10 +44,85 @@ export async function POST(req: Request) {
       where: { companyId: session.companyId },
     });
 
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+    // 1. Check Work Schedule / Shift for Today
+    const schedule = await db.employeeSchedule.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId: session.employeeId,
+          date: todayStart,
+        },
+      },
+      include: { shift: true },
+    });
+
+    let effectiveStartTime = policy?.workStartTime || "08:30";
+    let effectiveEndTime = policy?.workEndTime || "17:30";
+    let shiftName = "Kebijakan Kantor";
+
+    if (schedule) {
+      if (schedule.isOffDay) {
+        return NextResponse.json(
+          { error: "Hari ini adalah Hari Libur (Off-Day) sesuai jadwal kerja Anda. Check-in tidak diperlukan." },
+          { status: 400 }
+        );
+      }
+      if (schedule.shift) {
+        effectiveStartTime = schedule.shift.startTime;
+        effectiveEndTime = schedule.shift.endTime;
+        shiftName = schedule.shift.name;
+      }
+    } else {
+      // Fallback to company policy working days
+      let workingDays: string[] = ["MON", "TUE", "WED", "THU", "FRI"];
+      if (policy?.workingDays) {
+        try {
+          workingDays = typeof policy.workingDays === "string" ? JSON.parse(policy.workingDays) : policy.workingDays;
+        } catch {}
+      }
+
+      const currentDayCode = DAY_MAP[now.getDay()];
+      if (!workingDays.includes(currentDayCode)) {
+        return NextResponse.json(
+          { error: `Hari ini (${currentDayCode}) adalah hari libur perusahaan sesuai kebijakan absensi.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. Check-In Window Validation
+    const [startHour, startMin] = effectiveStartTime.split(":").map(Number);
+    const scheduledStart = new Date();
+    scheduledStart.setHours(startHour, startMin, 0, 0);
+
+    const windowStartMins = policy?.checkInWindowStartMinutes ?? 60;
+    const windowEndMins = policy?.checkInWindowEndMinutes ?? 240;
+
+    const earliestCheckIn = new Date(scheduledStart.getTime() - windowStartMins * 60 * 1000);
+    const latestCheckIn = new Date(scheduledStart.getTime() + windowEndMins * 60 * 1000);
+
+    if (now < earliestCheckIn) {
+      const earliestStr = earliestCheckIn.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      return NextResponse.json(
+        { error: `Jendela check-in belum dibuka. Absensi untuk shift '${shiftName}' baru dapat dilakukan mulai pukul ${earliestStr} WIB.` },
+        { status: 400 }
+      );
+    }
+
+    if (now > latestCheckIn) {
+      return NextResponse.json(
+        { error: "Batas waktu check-in (cutoff) telah berakhir. Silakan ajukan Permohonan Izin Keterlambatan atau Koreksi Absensi." },
+        { status: 400 }
+      );
+    }
+
+    // 3. Geofence & Location Validation
     let distanceMeters = 0;
     if (policy?.isGpsRequired && employee.location) {
       if (latitude === undefined || longitude === undefined) {
-        return NextResponse.json({ error: "Lokasi GPS wajib disertakan sesuai kebijakan perusahaan." }, { status: 400 });
+        return NextResponse.json({ error: "Koordinat GPS perangkat wajib disertakan." }, { status: 400 });
       }
 
       distanceMeters = getDistanceMeters(
@@ -58,30 +135,37 @@ export async function POST(req: Request) {
       const maxRadius = policy.geofenceRadiusMeters || employee.location.radiusMeters || 100;
       if (distanceMeters > maxRadius && workType === "WFO") {
         return NextResponse.json({
-          error: `Lokasi Anda (${Math.round(distanceMeters)}m) berada di luar radius kantor yang diizinkan (${maxRadius}m).`,
+          error: `Anda berada di luar radius kantor (${Math.round(distanceMeters)}m). Maksimal yang diizinkan adalah ${maxRadius}m.`,
         }, { status: 400 });
       }
     }
 
+    // 4. Selfie Validation
     if (policy?.isSelfieRequired && !photoUrl) {
-      return NextResponse.json({ error: "Foto selfie wajib diambil untuk verifikasi absensi." }, { status: 400 });
+      return NextResponse.json({ error: "Foto selfie kamera langsung wajib diambil untuk verifikasi absensi." }, { status: 400 });
     }
 
-    const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // 5. Late Status Computation
+    const lateTolerance = policy?.lateToleranceMinutes ?? 15;
+    const lateThreshold = new Date(scheduledStart.getTime() + lateTolerance * 60 * 1000);
+    const status = now > lateThreshold ? "LATE" : "PRESENT";
 
-    // Calculate late status
-    let status = "PRESENT";
-    if (policy?.workStartTime) {
-      const [startHour, startMin] = policy.workStartTime.split(":").map(Number);
-      const tolerance = policy.lateToleranceMinutes || 15;
-      const scheduledStart = new Date();
-      scheduledStart.setHours(startHour, startMin + tolerance, 0, 0);
+    // 6. Check If Already Checked In Today
+    const existingRecord = await db.attendance.findUnique({
+      where: {
+        companyId_employeeId_date: {
+          companyId: session.companyId,
+          employeeId: session.employeeId,
+          date: todayStart,
+        },
+      },
+    });
 
-      if (now > scheduledStart) {
-        status = "LATE";
-      }
+    if (existingRecord && existingRecord.checkInTime) {
+      return NextResponse.json(
+        { error: "Anda sudah melakukan check-in hari ini pada pukul " + new Date(existingRecord.checkInTime).toLocaleTimeString("id-ID") + " WIB." },
+        { status: 400 }
+      );
     }
 
     const record = await db.attendance.upsert({
@@ -101,10 +185,10 @@ export async function POST(req: Request) {
         checkInLongitude: longitude,
         checkInPhotoUrl: photoUrl || "/selfie-mock.jpg",
         checkInDistanceMeters: Math.round(distanceMeters),
-        checkInAddress: employee.location?.address || "Kantor Pusat",
+        checkInAddress: employee.location?.address || "Kantor Utama",
         status,
         workType,
-        notes,
+        notes: notes ? `${notes} [Shift: ${shiftName}]` : `[Shift: ${shiftName}]`,
       },
       update: {
         checkInTime: now,
@@ -114,7 +198,7 @@ export async function POST(req: Request) {
         checkInDistanceMeters: Math.round(distanceMeters),
         status,
         workType,
-        notes,
+        notes: notes ? `${notes} [Shift: ${shiftName}]` : `[Shift: ${shiftName}]`,
       },
     });
 
@@ -124,12 +208,19 @@ export async function POST(req: Request) {
       module: "ATTENDANCE",
       action: "CHECKIN",
       recordId: record.id,
-      newValues: { time: now, status, distanceMeters: Math.round(distanceMeters) },
+      newValues: {
+        time: now,
+        status,
+        shift: shiftName,
+        distanceMeters: Math.round(distanceMeters),
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: status === "LATE" ? "Absen masuk berhasil (Terlambat)" : "Absen masuk berhasil (Tepat Waktu)",
+      message: status === "LATE"
+        ? `Absen masuk berhasil (Terlambat). Shift: ${shiftName}`
+        : `Absen masuk berhasil (Tepat Waktu). Shift: ${shiftName}`,
       data: record,
     });
   } catch (err: any) {

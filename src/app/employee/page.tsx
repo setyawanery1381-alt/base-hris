@@ -146,6 +146,15 @@ export default function EmployeeMobileDashboard() {
                     {todayData?.officeLocation?.name || "Puri Indah Office"}
                   </span>
                 </p>
+                <div className="mt-1 flex items-center space-x-1">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-100">
+                    {todayData?.isOffDay
+                      ? "Off-Day (Libur)"
+                      : todayData?.shift
+                      ? `${todayData.shift.name} (${todayData.shift.startTime} - ${todayData.shift.endTime})`
+                      : "Shift Kantor"}
+                  </span>
+                </div>
               </div>
 
               <div className="text-right">
@@ -208,8 +217,7 @@ export default function EmployeeMobileDashboard() {
                 icon: CalendarCheck,
                 color: "bg-teal-50 text-teal-600 border-teal-200",
                 onClick: () => {
-                  setModalType(isCheckedIn && !isCheckedOut ? "checkout" : "checkin");
-                  setIsAttendModalOpen(true);
+                  router.push("/employee/attendance");
                 },
               },
               {
