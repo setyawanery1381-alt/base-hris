@@ -22,6 +22,8 @@ async function main() {
   await prisma.leaveBalance.deleteMany();
   await prisma.leaveType.deleteMany();
   await prisma.attendance.deleteMany();
+  await prisma.employeeSchedule.deleteMany();
+  await prisma.shift.deleteMany();
   await prisma.attendancePolicy.deleteMany();
   await prisma.employeeEmploymentHistory.deleteMany();
   await prisma.employeePersonalData.deleteMany();
@@ -73,6 +75,9 @@ async function main() {
     { code: "attendance.manage", module: "attendance", description: "Manage attendance policies & records" },
     { code: "attendance.policy.view", module: "attendance", description: "View attendance policy" },
     { code: "attendance.policy.manage", module: "attendance", description: "Configure attendance policy" },
+    // Schedules & Shifts
+    { code: "shift.view", module: "schedule", description: "View work shifts and schedules" },
+    { code: "shift.manage", module: "schedule", description: "Manage work shifts and roster schedules" },
     // Leave & Permission
     { code: "leave.view", module: "leave", description: "View leave requests" },
     { code: "leave.create", module: "leave", description: "Submit leave request" },
@@ -122,7 +127,7 @@ async function main() {
 
   // Manager
   const managerPerms = [
-    "employee.view", "attendance.view", "attendance.policy.view", "leave.view", "leave.create", "leave.approve",
+    "employee.view", "attendance.view", "attendance.policy.view", "shift.view", "leave.view", "leave.create", "leave.approve",
     "permission.view", "permission.create", "permission.approve",
     "overtime.view", "overtime.create", "overtime.approve",
     "reimbursement.view", "reimbursement.create", "reimbursement.approve",
@@ -138,7 +143,7 @@ async function main() {
 
   // Employee
   const employeePerms = [
-    "attendance.checkin", "attendance.checkout", "attendance.view", "attendance.policy.view",
+    "attendance.checkin", "attendance.checkout", "attendance.view", "attendance.policy.view", "shift.view",
     "leave.create", "leave.view",
     "permission.create", "permission.view",
     "overtime.create", "overtime.view",
@@ -243,6 +248,46 @@ async function main() {
       isCorrectionAllowed: true,
       maxCorrectionDays: 7,
       isDefault: true,
+    },
+  });
+
+  // Shifts for Tenant 1
+  const shiftGen1 = await prisma.shift.create({
+    data: {
+      companyId: company1.id,
+      name: "General Office (08:30 - 17:30)",
+      code: "GEN",
+      startTime: "08:30",
+      endTime: "17:30",
+      breakDurationMinutes: 60,
+      isOvernight: false,
+      color: "#0d9488",
+    },
+  });
+
+  const shiftPagi1 = await prisma.shift.create({
+    data: {
+      companyId: company1.id,
+      name: "Shift Pagi (07:00 - 15:00)",
+      code: "PAGI",
+      startTime: "07:00",
+      endTime: "15:00",
+      breakDurationMinutes: 60,
+      isOvernight: false,
+      color: "#3b82f6",
+    },
+  });
+
+  const shiftSiang1 = await prisma.shift.create({
+    data: {
+      companyId: company1.id,
+      name: "Shift Siang (15:00 - 23:00)",
+      code: "SIANG",
+      startTime: "15:00",
+      endTime: "23:00",
+      breakDurationMinutes: 60,
+      isOvernight: false,
+      color: "#f59e0b",
     },
   });
 
@@ -462,6 +507,20 @@ async function main() {
     },
   });
 
+  // Sample Schedule for Rian Pratama (Today)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  await prisma.employeeSchedule.create({
+    data: {
+      companyId: company1.id,
+      employeeId: empEmp1.id,
+      shiftId: shiftGen1.id,
+      date: today,
+      isOffDay: false,
+      notes: "Jadwal Kerja Reguler (General Office)",
+    },
+  });
+
   // Approval Workflow Tenant 1 (Leave Request: Manager -> HR)
   const wfLeave1 = await prisma.approvalWorkflow.create({
     data: {
@@ -592,6 +651,20 @@ async function main() {
       isCorrectionAllowed: true,
       maxCorrectionDays: 7,
       isDefault: true,
+    },
+  });
+
+  // Shift for Tenant 2
+  await prisma.shift.create({
+    data: {
+      companyId: company2.id,
+      name: "Standard ABC (08:00 - 17:00)",
+      code: "ABC-REG",
+      startTime: "08:00",
+      endTime: "17:00",
+      breakDurationMinutes: 60,
+      isOvernight: false,
+      color: "#1e40af",
     },
   });
 

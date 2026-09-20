@@ -35,6 +35,8 @@ model Company {
   employees           Employee[]
   attendancePolicies  AttendancePolicy[]
   attendanceRecords   Attendance[]
+  shifts              Shift[]
+  employeeSchedules   EmployeeSchedule[]
   leaveTypes          LeaveType[]
   leaveBalances       LeaveBalance[]
   leaveRequests       LeaveRequest[]
@@ -285,6 +287,7 @@ model Employee {
   reimbursements    Reimbursement[]
   payslips          Payslip[]
   serviceRequests   HrServiceRequest[]
+  schedules         EmployeeSchedule[]
 
   @@unique([companyId, employeeIdNumber])
 }
@@ -396,6 +399,43 @@ model Attendance {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, employeeId, date])
+}
+
+model Shift {
+  id                   String   @id @default(uuid())
+  companyId            String
+  name                 String   // e.g. "Shift Pagi (08:00 - 16:00)", "General Office (08:30 - 17:30)"
+  code                 String   // e.g. "PAGI", "SIANG", "MALAM", "GEN"
+  startTime            String   // "08:00"
+  endTime              String   // "16:00"
+  breakDurationMinutes Int      @default(60)
+  isOvernight          Boolean  @default(false)
+  color                String?  @default("#0d9488")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  schedules EmployeeSchedule[]
+
+  @@unique([companyId, code])
+}
+
+model EmployeeSchedule {
+  id         String   @id @default(uuid())
+  companyId  String
+  employeeId String
+  shiftId    String
+  date       DateTime // Date of schedule (normalized to YYYY-MM-DD 00:00:00 UTC)
+  isOffDay   Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
 }
 
 // -------------------------------------------------------------
