@@ -43,6 +43,7 @@ model Company {
   leaveRequests       LeaveRequest[]
   permissionTypes     PermissionType[]
   permissionRequests  PermissionRequest[]
+  overtimePolicy      OvertimePolicy?
   overtimeRequests    OvertimeRequest[]
   approvalWorkflows   ApprovalWorkflow[]
   approvalRequests    ApprovalRequest[]
@@ -572,19 +573,46 @@ model PermissionRequest {
   typeDefinition PermissionType? @relation(fields: [permissionTypeId], references: [id], onDelete: SetNull)
 }
 
+model OvertimePolicy {
+  id                  String   @id @default(uuid())
+  companyId           String   @unique
+  minOvertimeMinutes  Int      @default(60)    // Minimal lembur (e.g. 60 min to qualify)
+  maxDailyHours       Float    @default(4.0)   // Batas regulasi (e.g. max 4 hours/day)
+  maxWeeklyHours      Float    @default(18.0)  // Batas mingguan (e.g. max 18 hours/week)
+  requiresPreApproval Boolean  @default(true)  // Wajib pengajuan sebelum lembur (pre-approval)
+  compensationType    String   @default("PAYABLE") // PAYABLE, COMP_TIME, BOTH
+  roundingMinutes     Int      @default(30)    // Pembulatan menit (e.g. rounded to nearest 30 mins)
+  requiresAttachment  Boolean  @default(false) // Wajib lampiran SPK / surat perintah lembur
+  workdayMultiplier   Float    @default(1.5)   // Pengali lembur hari kerja
+  holidayMultiplier   Float    @default(2.0)   // Pengali lembur hari libur / tanggal merah
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
 model OvertimeRequest {
-  id          String   @id @default(uuid())
-  companyId   String
-  employeeId  String
-  date        DateTime
-  startTime   String
-  endTime     String
-  hours       Float
-  reason      String
-  projectName String?
-  status      String   @default("PENDING")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(uuid())
+  companyId        String
+  employeeId       String
+  date             DateTime
+  overtimeType     String    @default("WORKDAY") // WORKDAY, HOLIDAY, OFF_DAY
+  startTime        String    // "17:30"
+  endTime          String    // "20:30"
+  hours            Float     @default(1.0)       // Duration hours (backward compatible)
+  durationHours    Float     @default(1.0)       // Duration hours
+  actualHours      Float?    // Actual hours computed
+  reason           String    // Deskripsi tugas lembur
+  projectName      String?   // Nama project / pekerjaan
+  attachmentUrl    String?   // SPK / Surat tugas
+  compensationType String    @default("PAYABLE") // PAYABLE, COMP_TIME
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  adminNotes       String?
+  approvedBy       String?
+  cancelledAt      DateTime?
+  cancelledBy      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

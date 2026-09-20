@@ -317,7 +317,9 @@ export default function EmployeeMobileDashboard() {
                 label: "Lembur",
                 icon: Clock,
                 color: "bg-purple-50 text-purple-600 border-purple-200",
-                onClick: () => alert("Pengajuan Lembur: Masukkan jam mulai & jam selesai kerja"),
+                onClick: () => {
+                  router.push("/employee/overtime");
+                },
               },
             ].map((action, i) => {
               const Icon = action.icon;
