@@ -33,6 +33,36 @@ export default function EmployeeMorePage() {
         </div>
 
         <div className="p-4 space-y-3 text-xs font-semibold text-slate-700">
+          {(session?.roles?.includes("HR_ADMIN") ||
+            session?.roles?.includes("SUPER_ADMIN") ||
+            session?.email?.includes("klien") ||
+            session?.email?.includes("hr@")) && (
+            <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl border border-indigo-900/60 overflow-hidden shadow-sm">
+              <button
+                onClick={() => router.push("/admin/dashboard")}
+                className="w-full p-4 flex items-center justify-between text-left text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-sm">Dashboard HR Admin</span>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px] font-semibold">
+                        Trial Portal
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Kelola shift, master karyawan, & kebijakan HR
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-indigo-300 shrink-0" />
+              </button>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
             <button onClick={() => alert("Pengumuman: Tidak ada pengumuman mendesak.")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
               <div className="flex items-center space-x-3">

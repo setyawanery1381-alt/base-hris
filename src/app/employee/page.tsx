@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Bell,
   Sparkles,
+  Building2,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
@@ -103,8 +104,22 @@ export default function EmployeeMobileDashboard() {
                 {theme.appName || sessionUser?.companyName || "Kanaya Solusindo"}
               </span>
             </div>
-            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm text-white/80 hover:text-white">
-              <Bell className="w-4 h-4" />
+            <div className="flex items-center space-x-2">
+              {(sessionUser?.roles?.includes("HR_ADMIN") ||
+                sessionUser?.roles?.includes("SUPER_ADMIN") ||
+                sessionUser?.email?.includes("klien") ||
+                sessionUser?.email?.includes("hr@")) && (
+                <button
+                  onClick={() => router.push("/admin/dashboard")}
+                  className="px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white text-[11px] font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-white" />
+                  <span>Admin Trial ↗</span>
+                </button>
+              )}
+              <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm text-white/80 hover:text-white">
+                <Bell className="w-4 h-4" />
+              </div>
             </div>
           </div>
 
@@ -232,6 +247,40 @@ export default function EmployeeMobileDashboard() {
             )}
           </div>
         </div>
+
+        {/* Admin / Trial Portal Switcher Banner */}
+        {(sessionUser?.roles?.includes("HR_ADMIN") ||
+          sessionUser?.roles?.includes("SUPER_ADMIN") ||
+          sessionUser?.email?.includes("klien") ||
+          sessionUser?.email?.includes("hr@")) && (
+          <div className="px-4 mb-5">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-900/60 shadow-lg flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="font-bold text-xs text-white">Mode Administrator HR</span>
+                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 text-[9px] font-bold tracking-wider uppercase">
+                      Trial
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Uji coba kelola shift, kebijakan absensi & persetujuan
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => router.push("/admin/dashboard")}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1 shrink-0 cursor-pointer"
+              >
+                <span>Buka Admin</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Quick Actions (Pro-Int Style Grid) */}
         <div className="px-4 mb-5">

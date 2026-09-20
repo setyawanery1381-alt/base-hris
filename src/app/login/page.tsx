@@ -49,12 +49,8 @@ export default function LoginPage() {
         }
       }
 
-      // Redirect according to role
-      if (data.user.roles.includes("EMPLOYEE") && !data.user.roles.includes("HR_ADMIN") && !data.user.roles.includes("SUPER_ADMIN")) {
-        router.push("/employee");
-      } else {
-        router.push("/admin/dashboard");
-      }
+      // Redirect langsung ke dashboard karyawan terlebih dahulu (/employee)
+      router.push("/employee");
       router.refresh();
     } catch (err: any) {
       setErrorMessage("Terjadi gangguan jaringan atau server. Silakan coba lagi.");
