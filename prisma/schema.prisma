@@ -343,18 +343,27 @@ model EmployeeDocument {
 // 5. ATTENDANCE & SCHEDULES
 // -------------------------------------------------------------
 model AttendancePolicy {
-  id                   String   @id @default(uuid())
-  companyId            String
-  name                 String   @default("Standard Policy")
-  workStartTime        String   @default("08:00")
-  workEndTime          String   @default("17:00")
-  lateToleranceMinutes Int      @default(15)
-  geofenceRadiusMeters Int      @default(100)
-  isSelfieRequired     Boolean  @default(true)
-  isGpsRequired        Boolean  @default(true)
-  breakDurationMinutes Int      @default(60)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                            String   @id @default(uuid())
+  companyId                     String
+  name                          String   @default("Standard Policy")
+  workingDays                   String   @default("[\"MON\",\"TUE\",\"WED\",\"THU\",\"FRI\"]") // JSON array of active days
+  workStartTime                 String   @default("08:00")
+  workEndTime                   String   @default("17:00")
+  checkInWindowStartMinutes     Int      @default(60) // Can check-in 60 min before start
+  checkInWindowEndMinutes       Int      @default(240) // Cut-off after start
+  lateToleranceMinutes          Int      @default(15)
+  earlyCheckoutToleranceMinutes Int      @default(0)
+  geofenceRadiusMeters          Int      @default(100)
+  isSelfieRequired              Boolean  @default(true)
+  isGpsRequired                 Boolean  @default(true)
+  breakDurationMinutes          Int      @default(60)
+  isOvertimeAllowed             Boolean  @default(true)
+  minOvertimeMinutes            Int      @default(30)
+  isCorrectionAllowed           Boolean  @default(true)
+  maxCorrectionDays             Int      @default(7)
+  isDefault                     Boolean  @default(true)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }

@@ -71,6 +71,8 @@ async function main() {
     { code: "attendance.checkin", module: "attendance", description: "Perform check-in" },
     { code: "attendance.checkout", module: "attendance", description: "Perform check-out" },
     { code: "attendance.manage", module: "attendance", description: "Manage attendance policies & records" },
+    { code: "attendance.policy.view", module: "attendance", description: "View attendance policy" },
+    { code: "attendance.policy.manage", module: "attendance", description: "Configure attendance policy" },
     // Leave & Permission
     { code: "leave.view", module: "leave", description: "View leave requests" },
     { code: "leave.create", module: "leave", description: "Submit leave request" },
@@ -120,7 +122,7 @@ async function main() {
 
   // Manager
   const managerPerms = [
-    "employee.view", "attendance.view", "leave.view", "leave.create", "leave.approve",
+    "employee.view", "attendance.view", "attendance.policy.view", "leave.view", "leave.create", "leave.approve",
     "permission.view", "permission.create", "permission.approve",
     "overtime.view", "overtime.create", "overtime.approve",
     "reimbursement.view", "reimbursement.create", "reimbursement.approve",
@@ -136,7 +138,7 @@ async function main() {
 
   // Employee
   const employeePerms = [
-    "attendance.checkin", "attendance.checkout", "attendance.view",
+    "attendance.checkin", "attendance.checkout", "attendance.view", "attendance.policy.view",
     "leave.create", "leave.view",
     "permission.create", "permission.view",
     "overtime.create", "overtime.view",
@@ -225,13 +227,22 @@ async function main() {
     data: {
       companyId: company1.id,
       name: "Kebijakan Kantor Utama (Kanaya)",
+      workingDays: JSON.stringify(["MON", "TUE", "WED", "THU", "FRI"]),
       workStartTime: "08:30",
       workEndTime: "17:30",
+      checkInWindowStartMinutes: 60,
+      checkInWindowEndMinutes: 240,
       lateToleranceMinutes: 15,
+      earlyCheckoutToleranceMinutes: 0,
       geofenceRadiusMeters: 150,
       isSelfieRequired: true,
       isGpsRequired: true,
       breakDurationMinutes: 60,
+      isOvertimeAllowed: true,
+      minOvertimeMinutes: 30,
+      isCorrectionAllowed: true,
+      maxCorrectionDays: 7,
+      isDefault: true,
     },
   });
 
@@ -565,13 +576,22 @@ async function main() {
     data: {
       companyId: company2.id,
       name: "Kebijakan Standard ABC",
+      workingDays: JSON.stringify(["MON", "TUE", "WED", "THU", "FRI"]),
       workStartTime: "08:00",
       workEndTime: "17:00",
+      checkInWindowStartMinutes: 60,
+      checkInWindowEndMinutes: 240,
       lateToleranceMinutes: 10,
+      earlyCheckoutToleranceMinutes: 0,
       geofenceRadiusMeters: 100,
       isSelfieRequired: true,
       isGpsRequired: true,
       breakDurationMinutes: 60,
+      isOvertimeAllowed: true,
+      minOvertimeMinutes: 30,
+      isCorrectionAllowed: true,
+      maxCorrectionDays: 7,
+      isDefault: true,
     },
   });
 
@@ -648,13 +668,22 @@ async function main() {
     data: {
       companyId: company3.id,
       name: "Kebijakan Kantor Demo",
+      workingDays: JSON.stringify(["MON", "TUE", "WED", "THU", "FRI", "SAT"]),
       workStartTime: "08:00",
       workEndTime: "17:00",
+      checkInWindowStartMinutes: 60,
+      checkInWindowEndMinutes: 300,
       lateToleranceMinutes: 30,
+      earlyCheckoutToleranceMinutes: 15,
       geofenceRadiusMeters: 500,
       isSelfieRequired: true,
       isGpsRequired: true,
       breakDurationMinutes: 60,
+      isOvertimeAllowed: true,
+      minOvertimeMinutes: 30,
+      isCorrectionAllowed: true,
+      maxCorrectionDays: 14,
+      isDefault: true,
     },
   });
 

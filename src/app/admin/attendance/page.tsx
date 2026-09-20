@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   CalendarCheck,
   Search,
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Building,
+  Settings,
 } from "lucide-react";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,14 @@ export default function AdminAttendancePage() {
               Pemantauan absensi geofence, waktu server, toleransi terlambat, dan verifikasi foto ({session?.companyName}).
             </p>
           </div>
+
+          <Link
+            href="/admin/attendance/policy"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-sm transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            <span>Kelola Kebijakan Absensi</span>
+          </Link>
         </div>
 
         {/* Policy Highlights Banner */}
@@ -72,6 +82,9 @@ export default function AdminAttendancePage() {
               <span>Toleransi: <strong className="text-white">{policy.lateToleranceMinutes}m</strong></span>
               <span>Geofence: <strong className="text-white">{policy.geofenceRadiusMeters}m</strong></span>
               <span>Selfie: <strong className="text-teal-300">{policy.isSelfieRequired ? "WAJIB" : "OPSIONAL"}</strong></span>
+              <Link href="/admin/attendance/policy" className="text-teal-400 underline font-semibold hover:text-teal-300">
+                Ubah
+              </Link>
             </div>
           </div>
         )}
