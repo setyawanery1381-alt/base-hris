@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     const where: any = { companyId: session.companyId };
     if (year) where.year = parseInt(year, 10);
 
-    const periods = await db.payrollPeriod.findMany({
+    let periods = await db.payrollPeriod.findMany({
       where,
       include: {
         runs: {
@@ -33,6 +33,45 @@ export async function GET(req: Request) {
       },
       orderBy: [{ year: "desc" }, { month: "desc" }],
     });
+
+    // Auto-provision default period if none exists for this tenant
+    if (periods.length === 0) {
+      const now = new Date();
+      const curMonth = now.getMonth() + 1;
+      const curYear = now.getFullYear();
+      const monthNames = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+      ];
+      const defaultName = `Gaji ${monthNames[curMonth - 1] || curMonth} ${curYear}`;
+
+      const newPeriod = await db.payrollPeriod.create({
+        data: {
+          companyId: session.companyId,
+          name: defaultName,
+          month: curMonth,
+          year: curYear,
+          startDate: new Date(curYear, curMonth - 1, 1),
+          endDate: new Date(curYear, curMonth, 0),
+          cutOffStartDate: new Date(curYear, curMonth - 2, 21),
+          cutOffEndDate: new Date(curYear, curMonth - 1, 20),
+          paymentDate: new Date(curYear, curMonth - 1, 25),
+          status: "DRAFT",
+        },
+        include: {
+          runs: {
+            select: {
+              id: true,
+              status: true,
+              totalEmployees: true,
+              totalNetPay: true,
+              runDate: true,
+            },
+          },
+        },
+      });
+      periods = [newPeriod];
+    }
 
     return NextResponse.json({ periods });
   } catch (error: any) {

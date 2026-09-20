@@ -81,7 +81,31 @@ async function main() {
       },
     });
 
-    // 3. Seed Employee Salary Profiles if they have employees
+    // 3. Seed Default Payroll Period (September 2026)
+    await prisma.payrollPeriod.upsert({
+      where: {
+        companyId_month_year: {
+          companyId: company.id,
+          month: 9,
+          year: 2026,
+        },
+      },
+      update: {},
+      create: {
+        companyId: company.id,
+        name: "Gaji September 2026",
+        month: 9,
+        year: 2026,
+        startDate: new Date("2026-09-01"),
+        endDate: new Date("2026-09-30"),
+        cutOffStartDate: new Date("2026-08-21"),
+        cutOffEndDate: new Date("2026-09-20"),
+        paymentDate: new Date("2026-09-25"),
+        status: "DRAFT",
+      },
+    });
+
+    // 4. Seed Employee Salary Profiles if they have employees
     const employees = await prisma.employee.findMany({
       where: { companyId: company.id },
       include: { personalData: true },

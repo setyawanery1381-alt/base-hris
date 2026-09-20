@@ -130,9 +130,15 @@ function RunsContent() {
   };
 
   const handleCalculatePayroll = async () => {
-    if (!selectedPeriodId) {
-      alert("Pilih periode terlebih dahulu");
-      return;
+    let targetPeriodId = selectedPeriodId;
+    if (!targetPeriodId) {
+      if (periods.length > 0) {
+        targetPeriodId = periods[0].id;
+        setSelectedPeriodId(targetPeriodId);
+      } else {
+        setIsPeriodModalOpen(true);
+        return;
+      }
     }
 
     setIsCalculating(true);
@@ -140,7 +146,7 @@ function RunsContent() {
       const res = await fetch("/api/v1/payroll/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodId: selectedPeriodId }),
+        body: JSON.stringify({ periodId: targetPeriodId }),
       });
 
       const data = await res.json();
@@ -250,12 +256,16 @@ function RunsContent() {
                 onChange={(e) => setSelectedPeriodId(e.target.value)}
                 className="mt-1 font-bold text-sm text-slate-900 bg-transparent border-0 focus:outline-none cursor-pointer"
               >
-                {periods.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({new Date(p.cutOffStartDate).toLocaleDateString("id-ID")} s.d.{" "}
-                    {new Date(p.cutOffEndDate).toLocaleDateString("id-ID")})
-                  </option>
-                ))}
+                {periods.length === 0 ? (
+                  <option value="">Belum ada periode (Klik Buat Periode Baru)</option>
+                ) : (
+                  periods.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({new Date(p.cutOffStartDate).toLocaleDateString("id-ID")} s.d.{" "}
+                      {new Date(p.cutOffEndDate).toLocaleDateString("id-ID")})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           </div>
@@ -263,7 +273,7 @@ function RunsContent() {
           <div className="flex items-center space-x-3">
             <button
               onClick={handleCalculatePayroll}
-              disabled={isCalculating || !selectedPeriodId}
+              disabled={isCalculating}
               className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-emerald-700/20 flex items-center space-x-2 transition-all cursor-pointer"
             >
               <Calculator className="w-4 h-4" />
@@ -504,20 +514,40 @@ function RunsContent() {
             <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
               <Calculator className="w-8 h-8" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">
-              Belum Ada Kalkulasi Payroll untuk Periode Ini
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-6">
-              Klik tombol di bawah untuk mengalkulasi gaji seluruh karyawan secara otomatis berdasarkan kehadiran, cuti, lembur, BPJS, dan PPh 21 TER 2024.
-            </p>
-            <button
-              onClick={handleCalculatePayroll}
-              disabled={isCalculating || !selectedPeriodId}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-700/25 transition-all cursor-pointer inline-flex items-center space-x-2"
-            >
-              <Calculator className="w-4 h-4" />
-              <span>{isCalculating ? "Menghitung..." : "Mulai Kalkulasi Sekarang"}</span>
-            </button>
+            {periods.length === 0 ? (
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Belum Ada Periode Payroll
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-6">
+                  Buat periode penggajian (misal: Gaji September 2026) untuk mulai mengalkulasi absensi, lembur, BPJS, dan PPh 21 TER 2024.
+                </p>
+                <button
+                  onClick={() => setIsPeriodModalOpen(true)}
+                  className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-700/25 transition-all cursor-pointer inline-flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Buat Periode Payroll Sekarang</span>
+                </button>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Belum Ada Kalkulasi Payroll untuk Periode Ini
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-6">
+                  Klik tombol di bawah untuk mengalkulasi gaji seluruh karyawan secara otomatis berdasarkan kehadiran, cuti, lembur, BPJS, dan PPh 21 TER 2024.
+                </p>
+                <button
+                  onClick={handleCalculatePayroll}
+                  disabled={isCalculating}
+                  className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-emerald-700/25 transition-all cursor-pointer inline-flex items-center space-x-2"
+                >
+                  <Calculator className="w-4 h-4" />
+                  <span>{isCalculating ? "Menghitung..." : "Mulai Kalkulasi Sekarang"}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
