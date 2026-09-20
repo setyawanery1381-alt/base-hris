@@ -465,16 +465,23 @@ model AttendanceCorrection {
 model LeaveType {
   id                 String   @id @default(uuid())
   companyId          String
-  name               String   // Annual Leave, Sick Leave, Maternity Leave, etc.
+  name               String   // e.g. "Cuti Tahunan", "Cuti Sakit", "Cuti Melahirkan"
+  code               String?  // e.g. "ANNUAL", "SICK", "MATERNITY", "MISCARRIAGE", "PATERNITY", "MARRIAGE", "BEREAVEMENT", "SPECIAL", "LONG_LEAVE", "UNPAID", "RELIGIOUS", "DUTY"
+  description        String?  // Contoh penggunaan / penjelasan kebijakan
   defaultEntitlement Int      @default(12)
   isPaid             Boolean  @default(true)
   requiresAttachment Boolean  @default(false)
+  minNoticeDays      Int      @default(0)
+  allowHalfDay       Boolean  @default(true)
+  isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   company  Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   balances LeaveBalance[]
   requests LeaveRequest[]
+
+  @@unique([companyId, code])
 }
 
 model LeaveBalance {
@@ -484,8 +491,8 @@ model LeaveBalance {
   leaveTypeId String
   year        Int
   entitlement Int      @default(12)
-  used        Int      @default(0)
-  remaining   Int      @default(12)
+  used        Float    @default(0.0)
+  remaining   Float    @default(12.0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -497,19 +504,22 @@ model LeaveBalance {
 }
 
 model LeaveRequest {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   companyId     String
   employeeId    String
   leaveTypeId   String
   startDate     DateTime
   endDate       DateTime
-  durationDays  Float    @default(1.0)
-  dayType       String   @default("FULL_DAY") // FULL_DAY, FIRST_HALF, SECOND_HALF
+  durationDays  Float     @default(1.0)
+  dayType       String    @default("FULL_DAY") // FULL_DAY, FIRST_HALF, SECOND_HALF
   reason        String
   attachmentUrl String?
-  status        String   @default("PENDING") // DRAFT, SUBMITTED, PENDING, APPROVED, REJECTED, CANCELLED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  adminNotes    String?
+  cancelledAt   DateTime?
+  cancelledBy   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee  Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
