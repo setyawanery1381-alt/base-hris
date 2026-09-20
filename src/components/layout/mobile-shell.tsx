@@ -21,6 +21,25 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   const pathname = usePathname();
   const { theme } = useTheme();
 
+  const [liveUnread, setLiveUnread] = React.useState(unreadNotificationsCount);
+  const [livePending, setLivePending] = React.useState(pendingApprovalsCount);
+
+  React.useEffect(() => {
+    fetch("/api/v1/notifications?limit=1")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.unreadCount !== undefined) setLiveUnread(d.unreadCount);
+      })
+      .catch(() => {});
+
+    fetch("/api/v1/approvals?scope=mine")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.counts?.total !== undefined) setLivePending(d.counts.total);
+      })
+      .catch(() => {});
+  }, []);
+
   const navItems = [
     { label: "HOME", href: "/employee", icon: Home },
     { label: "ME", href: "/employee/me", icon: User },
@@ -28,13 +47,13 @@ export const MobileShell: React.FC<MobileShellProps> = ({
       label: "APPROVAL",
       href: "/employee/approval",
       icon: CheckSquare,
-      badge: pendingApprovalsCount,
+      badge: livePending,
     },
     {
       label: "NOTIFIKASI",
       href: "/employee/notifications",
       icon: Bell,
-      badge: unreadNotificationsCount,
+      badge: liveUnread,
     },
     { label: "MORE", href: "/employee/more", icon: MoreHorizontal },
   ];

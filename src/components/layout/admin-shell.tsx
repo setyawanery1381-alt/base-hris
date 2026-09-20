@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   FileText,
+  Bell,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -36,6 +37,16 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
   const router = useRouter();
   const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  React.useEffect(() => {
+    fetch("/api/v1/notifications?limit=1")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.unreadCount !== undefined) setUnreadCount(d.unreadCount);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = async () => {
     await fetch("/api/v1/auth/logout", { method: "POST" });
@@ -182,7 +193,17 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
             </span>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <Link
+              href="/admin/approvals"
+              className="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+              title="Pusat Persetujuan & Notifikasi"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+              )}
+            </Link>
             <Link
               href="/employee"
               className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary/5 transition-colors flex items-center space-x-1.5"
