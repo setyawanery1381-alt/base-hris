@@ -41,6 +41,7 @@ model Company {
   leaveTypes          LeaveType[]
   leaveBalances       LeaveBalance[]
   leaveRequests       LeaveRequest[]
+  permissionTypes     PermissionType[]
   permissionRequests  PermissionRequest[]
   overtimeRequests    OvertimeRequest[]
   approvalWorkflows   ApprovalWorkflow[]
@@ -526,22 +527,49 @@ model LeaveRequest {
   leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
 }
 
-model PermissionRequest {
-  id             String   @id @default(uuid())
-  companyId      String
-  employeeId     String
-  permissionType String   // LATE_ARRIVAL, EARLY_LEAVE, PERMISSION_OUT, PERSONAL, BUSINESS, ABSENT
-  date           DateTime
-  startTime      String
-  endTime        String
-  reason         String
-  attachmentUrl  String?
-  status         String   @default("PENDING")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model PermissionType {
+  id                 String   @id @default(uuid())
+  companyId          String
+  name               String   // e.g. "Izin Datang Terlambat", "Izin Pulang Lebih Awal", "Izin Keluar Kantor"
+  code               String   // e.g. "LATE_ARRIVAL", "EARLY_LEAVE", "OUT_OFFICE", "PERSONAL", "SICK_NO_CERT", "DUTY_OUT", "EMERGENCY"
+  category           String   @default("HOURLY") // HOURLY, DAILY
+  description        String?
+  isPaid             Boolean  @default(true)
+  requiresAttachment Boolean  @default(false)
+  maxHours           Float?   // e.g. max 4 hours for hourly permission
+  maxDaysPerMonth    Int?     // e.g. max 2 days per month
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requests PermissionRequest[]
+
+  @@unique([companyId, code])
+}
+
+model PermissionRequest {
+  id               String    @id @default(uuid())
+  companyId        String
+  employeeId       String
+  permissionTypeId String?
+  permissionType   String    // code e.g. LATE_ARRIVAL, EARLY_LEAVE, OUT_OFFICE, PERSONAL, etc.
+  date             DateTime
+  startTime        String    // "08:30"
+  endTime          String    // "10:30"
+  durationHours    Float     @default(1.0)
+  reason           String
+  attachmentUrl    String?
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  adminNotes       String?
+  cancelledAt      DateTime?
+  cancelledBy      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeDefinition PermissionType? @relation(fields: [permissionTypeId], references: [id], onDelete: SetNull)
 }
 
 model OvertimeRequest {

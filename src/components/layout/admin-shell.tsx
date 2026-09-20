@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  FileText,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -51,7 +52,8 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Absensi & Kehadiran", href: "/admin/attendance", icon: CalendarCheck },
         { label: "Kebijakan Absensi", href: "/admin/attendance/policy", icon: ShieldCheck },
         { label: "Jadwal & Shift", href: "/admin/schedules", icon: CalendarRange },
-        { label: "Cuti & Izin", href: "/admin/leave", icon: CalendarDays },
+        { label: "Cuti Karyawan", href: "/admin/leave", icon: CalendarDays },
+        { label: "Izin Karyawan", href: "/admin/permission", icon: FileText },
         { label: "Lembur (Overtime)", href: "/admin/overtime", icon: Clock },
       ],
     },

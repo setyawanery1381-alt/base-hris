@@ -309,7 +309,9 @@ export default function EmployeeMobileDashboard() {
                 label: "Izin",
                 icon: FileText,
                 color: "bg-amber-50 text-amber-600 border-amber-200",
-                onClick: () => alert("Pengajuan Izin: Terlambat, Izin Keluar, Urusan Pribadi"),
+                onClick: () => {
+                  router.push("/employee/permission");
+                },
               },
               {
                 label: "Lembur",
