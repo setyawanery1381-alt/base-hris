@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeNotificationsPage() {
+  const { theme } = useTheme();
   const [session, setSession] = useState<any>(null);
   const [notifs, setNotifs] = useState<any[]>([]);
 
@@ -25,12 +27,17 @@ export default function EmployeeNotificationsPage() {
   return (
     <MobileShell user={session}>
       <div className="bg-slate-50 min-h-full">
-        <div className="bg-gradient-to-r from-teal-700 to-slate-900 text-white p-5 rounded-b-3xl shadow-md flex justify-between items-center">
+        <div
+          className="text-white p-5 rounded-b-3xl shadow-md flex justify-between items-center transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
           <div>
             <h1 className="text-lg font-black">Notifikasi In-App</h1>
-            <p className="text-[11px] text-teal-200">Pembaruan status pengajuan & info HR.</p>
+            <p className="text-[11px] text-white/80">Pembaruan status pengajuan & info HR.</p>
           </div>
-          <button onClick={markAllRead} className="p-2 rounded-xl bg-white/10 text-teal-200 hover:text-white flex items-center space-x-1 text-xs font-bold">
+          <button onClick={markAllRead} className="p-2 rounded-xl bg-white/10 text-white/90 hover:text-white flex items-center space-x-1 text-xs font-bold">
             <CheckCheck className="w-4 h-4" />
             <span>Tandai Baca</span>
           </button>

@@ -70,9 +70,10 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               <Link
                 key={item.label}
                 href={item.href}
+                style={{ color: isActive ? theme.primaryColor : undefined }}
                 className={`flex flex-col items-center justify-center py-1 px-3 relative transition-all duration-150 ${
                   isActive
-                    ? "text-primary font-bold scale-105"
+                    ? "font-bold scale-105"
                     : "text-slate-400 hover:text-slate-600"
                 }`}
               >

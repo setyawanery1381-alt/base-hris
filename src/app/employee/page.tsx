@@ -17,9 +17,11 @@ import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeMobileDashboard() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [todayData, setTodayData] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -85,15 +87,23 @@ export default function EmployeeMobileDashboard() {
     >
       <div className="bg-slate-50 min-h-full">
         {/* Top Header Section */}
-        <div className="bg-gradient-to-br from-teal-700 via-teal-800 to-slate-900 text-white px-5 pt-5 pb-16 rounded-b-[32px] shadow-md relative">
+        <div
+          className="text-white px-5 pt-5 pb-16 rounded-b-[32px] shadow-md relative transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></span>
-              <span className="text-[11px] font-bold tracking-wider uppercase text-teal-200">
-                {sessionUser?.companyName || "Kanaya Solusindo"}
+              <span
+                className="w-2.5 h-2.5 rounded-full animate-pulse"
+                style={{ backgroundColor: theme.secondaryColor || "#ffffff" }}
+              ></span>
+              <span className="text-[11px] font-bold tracking-wider uppercase text-white/90">
+                {theme.appName || sessionUser?.companyName || "Kanaya Solusindo"}
               </span>
             </div>
-            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm text-teal-100 hover:text-white">
+            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm text-white/80 hover:text-white">
               <Bell className="w-4 h-4" />
             </div>
           </div>
@@ -105,10 +115,10 @@ export default function EmployeeMobileDashboard() {
                 <span>Halo, {sessionUser?.name?.split(" ")[0] || "Rian"}</span>
                 <span>👋</span>
               </h1>
-              <p className="text-xs text-teal-100/90 font-medium truncate">
+              <p className="text-xs text-white/80 font-medium truncate">
                 Senior Frontend Engineer • Tech
               </p>
-              <p className="text-[10px] text-teal-300 font-mono mt-0.5">
+              <p className="text-[10px] text-white/70 font-mono mt-0.5">
                 ID: {sessionUser?.employeeNumber || "KNY-003"}
               </p>
             </div>
@@ -125,7 +135,14 @@ export default function EmployeeMobileDashboard() {
                   {currentTime.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                 </span>
               </div>
-              <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-[10px] font-bold">
+              <div
+                className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                style={{
+                  backgroundColor: `${theme.primaryColor}15`,
+                  borderColor: `${theme.primaryColor}30`,
+                  color: theme.primaryColor,
+                }}
+              >
                 <ShieldCheck className="w-3 h-3" />
                 <span>Geofence GPS</span>
               </div>
@@ -141,13 +158,20 @@ export default function EmployeeMobileDashboard() {
                   {formattedTimeStr}
                 </p>
                 <p className="text-[11px] text-slate-500 flex items-center space-x-1 mt-1">
-                  <MapPin className="w-3 h-3 text-teal-600" />
+                  <MapPin className="w-3 h-3" style={{ color: theme.primaryColor }} />
                   <span className="truncate max-w-[170px]">
                     {todayData?.officeLocation?.name || "Puri Indah Office"}
                   </span>
                 </p>
                 <div className="mt-1 flex items-center space-x-1">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-100">
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-md border"
+                    style={{
+                      backgroundColor: `${theme.primaryColor}15`,
+                      borderColor: `${theme.primaryColor}30`,
+                      color: theme.primaryColor,
+                    }}
+                  >
                     {todayData?.isOffDay
                       ? "Off-Day (Libur)"
                       : todayData?.shift
@@ -181,7 +205,11 @@ export default function EmployeeMobileDashboard() {
                   setModalType("checkin");
                   setIsAttendModalOpen(true);
                 }}
-                className="w-full py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm tracking-wider uppercase shadow-lg shadow-teal-700/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
+                style={{
+                  backgroundColor: theme.primaryColor,
+                  boxShadow: `0 10px 25px -5px ${theme.primaryColor}50`,
+                }}
+                className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm tracking-wider uppercase shadow-lg flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
               >
                 <CalendarCheck className="w-5 h-5" />
                 <span>CHECK IN (ABSEN MASUK)</span>
@@ -215,7 +243,7 @@ export default function EmployeeMobileDashboard() {
               {
                 label: "Absensi",
                 icon: CalendarCheck,
-                color: "bg-teal-50 text-teal-600 border-teal-200",
+                color: "bg-primary/10 text-primary border-primary/20",
                 onClick: () => {
                   router.push("/employee/attendance");
                 },

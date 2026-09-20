@@ -59,6 +59,14 @@ export default function BrandingSettingsPage() {
           secondaryColor,
           footerText,
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("tenant-branding-updated", {
+              detail: { appName, primaryColor, secondaryColor, footerText },
+            })
+          );
+          localStorage.setItem("tenant_branding_updated", Date.now().toString());
+        }
         setSuccessMsg("Branding berhasil disimpan! Warna dan identitas aplikasi telah diperbarui.");
         setTimeout(() => setSuccessMsg(""), 3000);
       }

@@ -3,8 +3,10 @@ import React, { useState, useEffect } from "react";
 import { CheckSquare, Check, X, CheckCircle2 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeMobileApprovalPage() {
+  const { theme } = useTheme();
   const [session, setSession] = useState<any>(null);
   const [approvals, setApprovals] = useState<any>({ leaves: [], overtimes: [] });
   const [feedback, setFeedback] = useState("");
@@ -37,9 +39,14 @@ export default function EmployeeMobileApprovalPage() {
   return (
     <MobileShell user={session}>
       <div className="bg-slate-50 min-h-full">
-        <div className="bg-gradient-to-r from-teal-700 to-slate-900 text-white p-5 rounded-b-3xl shadow-md">
+        <div
+          className="text-white p-5 rounded-b-3xl shadow-md transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
           <h1 className="text-lg font-black">Approval Inbox (Persetujuan)</h1>
-          <p className="text-[11px] text-teal-200">Tinjau permohonan bawahan atau tim Anda ({total} menunggu).</p>
+          <p className="text-[11px] text-white/80">Tinjau permohonan bawahan atau tim Anda ({total} menunggu).</p>
         </div>
 
         <div className="p-4 space-y-3">

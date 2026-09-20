@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeApplyLeavePage() {
   const router = useRouter();
+  const { theme } = useTheme();
   const [session, setSession] = useState<any>(null);
   const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
   const [balances, setBalances] = useState<any[]>([]);
@@ -80,13 +82,18 @@ export default function EmployeeApplyLeavePage() {
     <MobileShell user={session}>
       <div className="bg-slate-50 min-h-full">
         {/* Header (Pro-Int Mobile Inspired) */}
-        <div className="bg-gradient-to-r from-teal-700 to-slate-900 text-white p-5 rounded-b-3xl shadow-md">
-          <button onClick={() => router.push("/employee")} className="flex items-center space-x-1.5 text-xs text-teal-200 hover:text-white mb-2">
+        <div
+          className="text-white p-5 rounded-b-3xl shadow-md transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
+          <button onClick={() => router.push("/employee")} className="flex items-center space-x-1.5 text-xs text-white/80 hover:text-white mb-2">
             <ArrowLeft className="w-4 h-4" />
             <span>Kembali</span>
           </button>
           <h1 className="text-lg font-black tracking-tight">Apply Leave (Pengajuan Cuti)</h1>
-          <p className="text-[11px] text-teal-200">Pilih tanggal, kirim, langsung diproses oleh atasan.</p>
+          <p className="text-[11px] text-white/80">Pilih tanggal, kirim, langsung diproses oleh atasan.</p>
         </div>
 
         <div className="p-4 space-y-4">

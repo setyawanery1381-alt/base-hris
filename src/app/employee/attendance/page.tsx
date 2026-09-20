@@ -18,8 +18,10 @@ import { MobileShell } from "@/components/layout/mobile-shell";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeAttendanceHistoryPage() {
+  const { theme } = useTheme();
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [historyData, setHistoryData] = useState<any>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -168,7 +170,12 @@ export default function EmployeeAttendanceHistoryPage() {
     >
       <div className="bg-slate-50 min-h-full pb-20">
         {/* Header */}
-        <div className="bg-gradient-to-br from-teal-700 via-teal-800 to-slate-900 text-white px-5 pt-5 pb-8 rounded-b-[28px] shadow-md">
+        <div
+          className="text-white px-5 pt-5 pb-8 rounded-b-[28px] shadow-md transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
           <div className="flex items-center justify-between mb-4">
             <Link
               href="/employee"
@@ -181,7 +188,7 @@ export default function EmployeeAttendanceHistoryPage() {
             </h1>
             <button
               onClick={() => handleOpenCorrection()}
-              className="p-1.5 rounded-full bg-teal-500/30 hover:bg-teal-500/50 text-teal-200"
+              className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white"
               title="Ajukan Koreksi"
             >
               <Plus className="w-5 h-5" />
@@ -257,7 +264,8 @@ export default function EmployeeAttendanceHistoryPage() {
             </h2>
             <button
               onClick={() => handleOpenCorrection()}
-              className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+              style={{ color: theme.primaryColor }}
+              className="text-[11px] font-bold hover:underline"
             >
               + Ajukan Koreksi
             </button>

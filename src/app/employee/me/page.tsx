@@ -17,8 +17,10 @@ import {
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/layout/theme-provider";
 
 export default function EmployeeMePage() {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<"personal" | "employment" | "bank" | "timeline">("personal");
   const [employee, setEmployee] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
@@ -54,7 +56,12 @@ export default function EmployeeMePage() {
     <MobileShell user={session}>
       <div className="bg-slate-50 min-h-full">
         {/* Profile Card Header */}
-        <div className="bg-gradient-to-br from-teal-800 to-slate-900 text-white px-5 pt-6 pb-6 rounded-b-3xl shadow-md text-center">
+        <div
+          className="text-white px-5 pt-6 pb-6 rounded-b-3xl shadow-md text-center transition-all duration-300"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.secondaryColor || theme.primaryColor}, #0f172a)`,
+          }}
+        >
           <Avatar
             name={employee ? `${employee.firstName} ${employee.lastName}` : "Rian Pratama"}
             size="xl"
@@ -63,11 +70,11 @@ export default function EmployeeMePage() {
           <h1 className="text-base font-extrabold tracking-tight">
             {employee ? `${employee.firstName} ${employee.lastName}` : "Rian Pratama"}
           </h1>
-          <p className="text-xs text-teal-200 font-medium mt-0.5">
+          <p className="text-xs text-white/80 font-medium mt-0.5">
             {employee?.position?.name || "Senior Frontend Engineer"}
           </p>
           <div className="flex items-center justify-center space-x-2 mt-2">
-            <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-teal-200 text-[10px] font-mono border border-white/10">
+            <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 text-[10px] font-mono border border-white/10">
               NIK: {employee?.employeeIdNumber || "KNY-003"}
             </span>
             <Badge variant="success" className="text-[10px]">
@@ -91,9 +98,12 @@ export default function EmployeeMePage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
+                  style={{
+                    backgroundColor: isActive ? theme.primaryColor : undefined,
+                  }}
                   className={`flex-1 py-2 rounded-xl flex items-center justify-center space-x-1 transition-all ${
                     isActive
-                      ? "bg-teal-700 text-white shadow-sm"
+                      ? "text-white shadow-sm"
                       : "hover:text-slate-900"
                   }`}
                 >
