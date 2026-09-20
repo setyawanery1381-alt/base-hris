@@ -1,21 +1,27 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, Building, ArrowRight, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Lock, Mail, ArrowRight, ShieldCheck, Eye, EyeOff, Sparkles, Building2 } from "lucide-react";
 import { useTheme } from "@/components/layout/theme-provider";
 
 export default function LoginPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [email, setEmail] = useState("employee@kanaya.com");
-  const [password, setPassword] = useState("KanayaEmp#2026");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      setErrorMessage("Silakan masukkan email dan kata sandi Anda.");
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage("");
 
@@ -29,7 +35,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data.error || "Gagal login.");
+        setErrorMessage(data.error || "Email atau kata sandi tidak valid.");
         setIsLoading(false);
         return;
       }
@@ -51,149 +57,259 @@ export default function LoginPage() {
       }
       router.refresh();
     } catch (err: any) {
-      setErrorMessage("Terjadi gangguan jaringan atau server.");
+      setErrorMessage("Terjadi gangguan jaringan atau server. Silakan coba lagi.");
       setIsLoading(false);
     }
   };
 
-  const setTestAccount = (userEmail: string, userPass: string = "KanayaEmp#2026") => {
-    setEmail(userEmail);
-    setPassword(userPass);
+  const setDemoAccount = () => {
+    setEmail("klien@demohris.com");
+    setPassword("TrialClient#2026");
     setErrorMessage("");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-        {/* Header with White-Label Branding */}
-        <div className="bg-gradient-to-r from-teal-700 to-teal-900 px-8 pt-8 pb-7 text-white relative">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-white font-black text-xl">
-              {theme.appName ? theme.appName.charAt(0) : "B"}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 relative overflow-hidden selection:bg-indigo-500 selection:text-white">
+      {/* Dynamic Ambient Background Glows */}
+      <div
+        className="absolute top-1/4 -left-32 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700"
+        style={{ background: theme.primaryColor || "#4f46e5" }}
+      />
+      <div
+        className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full blur-3xl opacity-15 pointer-events-none transition-all duration-700"
+        style={{ background: theme.secondaryColor || "#818cf8" }}
+      />
+
+      {/* Subtle Background Pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(#fff 1px, transparent 1px)`,
+          backgroundSize: "24px 24px",
+        }}
+      />
+
+      {/* Main Login Card */}
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl shadow-slate-950/60 overflow-hidden border border-slate-100 relative z-10 text-slate-900 transition-all">
+        {/* Dynamic Header */}
+        <div
+          className="px-8 pt-9 pb-8 text-white relative overflow-hidden transition-all duration-500"
+          style={{
+            background: `linear-gradient(135deg, ${theme.primaryColor || "#4f46e5"} 0%, ${
+              theme.secondaryColor || "#3730a3"
+            } 100%)`,
+          }}
+        >
+          {/* Subtle overlay texture */}
+          <div className="absolute inset-0 bg-black/10 mix-blend-overlay pointer-events-none" />
+
+          <div className="relative z-10">
+            {/* Top Brand Identity */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                {theme.logoUrl ? (
+                  <img
+                    src={theme.logoUrl}
+                    alt={theme.appName}
+                    className="w-11 h-11 rounded-2xl object-cover bg-white/10 p-1 backdrop-blur-md border border-white/25 shadow-sm"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/30 text-white font-black text-xl shadow-sm">
+                    {theme.appName ? theme.appName.charAt(0) : "K"}
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-sm">
+                    {theme.appName || "BASE HRIS"}
+                  </h1>
+                  <p className="text-xs text-white/80 font-medium">
+                    {theme.companyName || "Human Resource Portal"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[10px] font-semibold text-white tracking-wide uppercase">
+                Single Sign-On
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">{theme.appName}</h1>
-              <p className="text-xs text-teal-200">Single Sign-On HR Portal</p>
-            </div>
+
+            <p className="text-xs text-white/85 leading-relaxed font-normal">
+              Masuk dengan akun resmi Anda untuk mengakses absensi, cuti, slip gaji, dan administrasi kepegawaian.
+            </p>
           </div>
-          <p className="text-xs text-teal-100/80 leading-relaxed mt-2">
-            Masuk untuk mengakses layanan absensi, cuti, slip gaji, dan portal kepegawaian.
-          </p>
         </div>
 
-        {/* Login Form */}
+        {/* Login Form Body */}
         <div className="p-8">
           {errorMessage && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center space-x-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-600 shrink-0"></span>
-              <span>{errorMessage}</span>
+            <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start space-x-2.5 animate-in fade-in slide-in-from-top-1">
+              <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0 mt-1"></span>
+              <span className="leading-relaxed">{errorMessage}</span>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* Email Field */}
             <div>
-              <Input
-                label="Email Perusahaan"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nama@perusahaan.com"
-              />
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Email Perusahaan
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nama@perusahaan.com"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all font-medium"
+                />
+              </div>
             </div>
 
+            {/* Password Field */}
             <div>
-              <Input
-                label="Kata Sandi"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Kata Sandi
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setForgotModalOpen(true)}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Lupa sandi?
+                </button>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <Button
+            {/* Remember Me */}
+            <div className="flex items-center pt-1 pb-1">
+              <label className="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
+                />
+                <span>Ingat saya di perangkat ini</span>
+              </label>
+            </div>
+
+            {/* Submit Button */}
+            <button
               type="submit"
-              className="w-full py-2.5 text-sm font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-700/20"
-              isLoading={isLoading}
+              disabled={isLoading}
+              style={{
+                background: `linear-gradient(135deg, ${theme.primaryColor || "#4f46e5"}, ${
+                  theme.secondaryColor || "#4338ca"
+                })`,
+              }}
+              className="w-full py-3 px-4 rounded-xl text-white font-semibold text-sm shadow-md hover:shadow-lg hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
-              <span>Masuk ke Akun</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Memverifikasi Akses...</span>
+                </>
+              ) : (
+                <>
+                  <span>Masuk ke Akun</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
           </form>
 
-          {/* Quick Demo Credentials Pill Bar */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            {/* Client Trial Quick Button */}
-            <div className="mb-3">
-              <button
-                type="button"
-                onClick={() => setTestAccount("klien@demohris.com", "TrialClient#2026")}
-                className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 hover:border-blue-400 hover:shadow-sm transition-all text-left flex items-center justify-between"
-              >
-                <div>
-                  <span className="flex items-center space-x-1.5 font-bold text-blue-900 text-xs">
-                    <span>🚀 Akun Klien Trial (Aman Dicoba)</span>
-                  </span>
-                  <span className="block text-[11px] text-blue-600 mt-0.5">
-                    PT Demo Solusi Pratama • Data Terisolasi
-                  </span>
+          {/* Client Trial Quick Demo (Safe & Isolated) */}
+          <div className="mt-7 pt-5 border-t border-slate-100">
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200/80 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold shadow-xs">
-                  Coba Demo
-                </span>
-              </button>
-            </div>
-
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 text-center">
-              Akses Karyawan & Admin Terdaftar
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">
+                    Akses Klien Trial (Demo)
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Eksplorasi fitur • Data terisolasi
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={() => setTestAccount("employee@kanaya.com", "KanayaEmp#2026")}
-                className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
+                onClick={setDemoAccount}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-xs cursor-pointer"
               >
-                <span className="block font-semibold text-slate-700">📱 Karyawan</span>
-                <span className="block text-[10px] text-slate-400 truncate">Rian (Mobile App)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTestAccount("hr@kanaya.com", "KanayaHR#2026")}
-                className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
-              >
-                <span className="block font-semibold text-slate-700">👔 HR Admin</span>
-                <span className="block text-[10px] text-slate-400 truncate">Budi (Desktop Admin)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTestAccount("manager@kanaya.com", "KanayaMgr#2026")}
-                className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
-              >
-                <span className="block font-semibold text-slate-700">✍️ Manager</span>
-                <span className="block text-[10px] text-slate-400 truncate">Dewi (Approver)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTestAccount("hr@abc.com", "AbcPerkasa#2026")}
-                className="p-2 text-left rounded-xl bg-slate-50 border border-slate-200 hover:bg-teal-50 hover:border-teal-300 transition-colors"
-              >
-                <span className="block font-semibold text-slate-700">🏢 Tenant 2 (ABC)</span>
-                <span className="block text-[10px] text-slate-400 truncate">Ahmad (Isolasi Data)</span>
+                Coba Demo
               </button>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="bg-slate-50 px-8 py-3 text-center border-t border-slate-100 flex items-center justify-center space-x-2 text-[11px] text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-          <span>Tenant Data Isolation Enforced (company_id)</span>
+        {/* Card Footer with Security Badges */}
+        <div className="bg-slate-50/80 px-8 py-3.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="flex items-center space-x-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="font-medium text-slate-500">256-Bit SSL Enkripsi</span>
+          </div>
+          <span className="text-slate-300">•</span>
+          <div className="flex items-center space-x-1.5">
+            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-medium text-slate-500">Multi-Tenant Isolated</span>
+          </div>
         </div>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {forgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-slate-800 shadow-2xl border border-slate-100">
+            <h3 className="text-base font-bold mb-2">Bantuan Lupa Kata Sandi</h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Untuk alasan keamanan dan perlindungan data kepegawaian, pengaturan ulang kata sandi dilakukan secara terpusat oleh Departemen HR atau IT Administrator perusahaan Anda.
+            </p>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 mb-4">
+              Silakan hubungi HR Admin atau kirimkan permohonan ke email resmi HR perusahaan Anda.
+            </div>
+            <button
+              type="button"
+              onClick={() => setForgotModalOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
+            >
+              Mengerti & Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Brand Footer Info */}
+      <div className="mt-6 text-center text-xs text-slate-500 relative z-10">
+        <p>{theme.footerText || "Powered by BASE HRIS Platform"}</p>
       </div>
     </div>
   );
