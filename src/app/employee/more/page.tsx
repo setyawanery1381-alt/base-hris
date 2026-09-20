@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight } from "lucide-react";
+import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { useTheme } from "@/components/layout/theme-provider";
 
@@ -64,6 +64,13 @@ export default function EmployeeMorePage() {
           )}
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+            <button onClick={() => router.push("/employee/payslips")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+              <div className="flex items-center space-x-3">
+                <Banknote className="w-4 h-4 text-emerald-600" />
+                <span className="font-bold text-slate-800">Slip Gaji Digital</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
             <button onClick={() => alert("Pengumuman: Tidak ada pengumuman mendesak.")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
               <div className="flex items-center space-x-3">
                 <Sparkles className="w-4 h-4 text-teal-600" />

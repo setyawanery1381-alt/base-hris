@@ -53,6 +53,12 @@ model Company {
   reimbursements      Reimbursement[]
   payslips            Payslip[]
   hrServiceRequests   HrServiceRequest[]
+  salaryComponents    SalaryComponent[]
+  salaryProfiles      EmployeeSalaryProfile[]
+  salaryComponentAssignments EmployeeSalaryComponent[]
+  taxBpjsSetting      TaxBpjsSetting?
+  payrollPeriods      PayrollPeriod[]
+  payrollRuns         PayrollRun[]
 }
 
 model CompanyBranding {
@@ -292,6 +298,7 @@ model Employee {
   serviceRequests   HrServiceRequest[]
   schedules         EmployeeSchedule[]
   attendanceCorrections AttendanceCorrection[]
+  salaryProfile     EmployeeSalaryProfile?
 
   @@unique([companyId, employeeIdNumber])
 }
@@ -739,25 +746,6 @@ model Reimbursement {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
-model Payslip {
-  id          String   @id @default(uuid())
-  companyId   String
-  employeeId  String
-  periodMonth Int
-  periodYear  Int
-  basicSalary Float
-  allowances  Float    @default(0)
-  deductions  Float    @default(0)
-  netSalary   Float
-  pdfUrl      String?
-  status      String   @default("PUBLISHED")
-  createdAt   DateTime @default(now())
-
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@unique([employeeId, periodMonth, periodYear])
-}
 
 model Announcement {
   id          String   @id @default(uuid())
@@ -787,3 +775,188 @@ model HrServiceRequest {
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
+
+// -------------------------------------------------------------
+// 10. PAYROLL & COMPENSATION (PHASE 3)
+// -------------------------------------------------------------
+model SalaryComponent {
+  id            String   @id @default(uuid())
+  companyId     String
+  name          String   // e.g. "Gaji Pokok", "Tunjangan Jabatan", "Tunjangan Makan", "Tunjangan Transport", "Bonus Kinerja", "Potongan Keterlambatan"
+  code          String   // e.g. "BASIC_SALARY", "ALLOWANCE_POSITION", "ALLOWANCE_MEAL", "ALLOWANCE_TRANSPORT", "DEDUCTION_LATE", "DEDUCTION_ABSENT"
+  type          String   // EARNING, DEDUCTION, BENEFIT
+  category      String   // BASIC, FIXED_ALLOWANCE, VARIABLE_ALLOWANCE, DEDUCTION, BENEFIT
+  isTaxable     Boolean  @default(true)
+  isBpjsSubject Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company            Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeComponents EmployeeSalaryComponent[]
+
+  @@unique([companyId, code])
+}
+
+model EmployeeSalaryProfile {
+  id                         String   @id @default(uuid())
+  companyId                  String
+  employeeId                 String   @unique
+  basicSalary                Float    @default(0)
+  paymentType                String   @default("MONTHLY") // MONTHLY, DAILY, HOURLY
+  bankName                   String?  // BCA, MANDIRI, BRI, BNI, etc.
+  bankAccountNumber          String?
+  bankAccountHolder          String?
+  taxStatus                  String   @default("TK/0") // TK/0, TK/1, TK/2, TK/3, K/0, K/1, K/2, K/3
+  npwp                       String?
+  bpjsKesehatanNumber        String?
+  bpjsKetenagakerjaanNumber    String?
+  bpjsKesehatanFamilyMembers Int      @default(0)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  company    Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee                  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  components EmployeeSalaryComponent[]
+}
+
+model EmployeeSalaryComponent {
+  id                      String   @id @default(uuid())
+  companyId               String
+  employeeSalaryProfileId String
+  salaryComponentId       String
+  amount                  Float    @default(0)
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  salaryProfile EmployeeSalaryProfile @relation(fields: [employeeSalaryProfileId], references: [id], onDelete: Cascade)
+  component     SalaryComponent       @relation(fields: [salaryComponentId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeSalaryProfileId, salaryComponentId])
+}
+
+model TaxBpjsSetting {
+  id                    String   @id @default(uuid())
+  companyId             String   @unique
+  bpjsKesCompanyRate    Float    @default(4.0)   // 4% employer
+  bpjsKesEmployeeRate   Float    @default(1.0)   // 1% employee
+  bpjsKesMaxCap         Float    @default(12000000) // Cap Rp 12.000.000
+  bpjsTkJkkRate         Float    @default(0.24)  // 0.24% JKK
+  bpjsTkJkmRate         Float    @default(0.30)  // 0.30% JKM
+  bpjsTkJhtCompanyRate  Float    @default(3.7)   // 3.7% employer
+  bpjsTkJhtEmployeeRate Float    @default(2.0)   // 2.0% employee
+  bpjsTkJpCompanyRate   Float    @default(2.0)   // 2.0% employer
+  bpjsTkJpEmployeeRate  Float    @default(1.0)   // 1.0% employee
+  bpjsTkJpMaxCap        Float    @default(10042300) // Cap Rp 10.042.300
+  pph21Method           String   @default("TER_2024") // TER_2024, GROSS, GROSS_UP, NETT
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model PayrollPeriod {
+  id              String    @id @default(uuid())
+  companyId       String
+  name            String    // e.g. "Gaji September 2026"
+  month           Int       // 1 - 12
+  year            Int       // 2026
+  startDate       DateTime
+  endDate         DateTime
+  cutOffStartDate DateTime
+  cutOffEndDate   DateTime
+  paymentDate     DateTime
+  status          String    @default("DRAFT") // DRAFT, PROCESSING, COMPLETED, LOCKED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company  Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  runs     PayrollRun[]
+  payslips Payslip[]
+
+  @@unique([companyId, month, year])
+}
+
+model PayrollRun {
+  id                 String    @id @default(uuid())
+  companyId          String
+  periodId           String
+  runDate            DateTime  @default(now())
+  totalEmployees     Int       @default(0)
+  totalGrossPay      Float     @default(0)
+  totalDeductions    Float     @default(0)
+  totalNetPay        Float     @default(0)
+  totalCompanyBpjs   Float     @default(0)
+  totalEmployeeBpjs  Float     @default(0)
+  totalPph21         Float     @default(0)
+  status             String    @default("DRAFT") // DRAFT, CONFIRMED, PAID
+  processedBy        String?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  payslips Payslip[]
+}
+
+model Payslip {
+  id                  String    @id @default(uuid())
+  companyId           String
+  employeeId          String
+  payrollPeriodId     String?
+  payrollRunId        String?
+  periodMonth         Int
+  periodYear          Int
+  basicSalary         Float     @default(0)
+  grossSalary         Float     @default(0)
+  totalAllowances     Float     @default(0)
+  totalDeductions     Float     @default(0)
+  totalBenefits       Float     @default(0)
+  netSalary           Float     @default(0)
+  overtimeHours       Float     @default(0)
+  overtimePay         Float     @default(0)
+  attendanceDeduction Float     @default(0)
+  lateDeduction       Float     @default(0)
+  bpjsKesCompany      Float     @default(0)
+  bpjsKesEmployee     Float     @default(0)
+  bpjsTkJkk           Float     @default(0)
+  bpjsTkJkm           Float     @default(0)
+  bpjsTkJhtCompany    Float     @default(0)
+  bpjsTkJhtEmployee   Float     @default(0)
+  bpjsTkJpCompany     Float     @default(0)
+  bpjsTkJpEmployee    Float     @default(0)
+  pph21               Float     @default(0)
+  taxCategory         String?   // TER_A, TER_B, TER_C
+  taxRate             Float?    @default(0)
+  status              String    @default("DRAFT") // DRAFT, PUBLISHED, PAID
+  publishedAt         DateTime?
+  pdfUrl              String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  company  Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period   PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+  run      PayrollRun?    @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+  items    PayslipItem[]
+
+  @@unique([employeeId, periodMonth, periodYear])
+}
+
+model PayslipItem {
+  id            String   @id @default(uuid())
+  payslipId     String
+  componentName String
+  componentCode String
+  type          String   // EARNING, DEDUCTION, BENEFIT
+  amount        Float    @default(0)
+  description   String?
+  createdAt     DateTime @default(now())
+
+  payslip Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+}
+

@@ -23,6 +23,10 @@ import {
   X,
   FileText,
   Bell,
+  Banknote,
+  CreditCard,
+  Calculator,
+  Landmark,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -66,6 +70,17 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Cuti Karyawan", href: "/admin/leave", icon: CalendarDays },
         { label: "Izin Karyawan", href: "/admin/permission", icon: FileText },
         { label: "Lembur (Overtime)", href: "/admin/overtime", icon: Clock },
+      ],
+    },
+    {
+      title: "PAYROLL & KOMPENSASI",
+      items: [
+        { label: "Dashboard Payroll", href: "/admin/payroll", icon: Banknote },
+        { label: "Komponen Gaji", href: "/admin/payroll/components", icon: Layers },
+        { label: "Gaji Karyawan", href: "/admin/payroll/salaries", icon: CreditCard },
+        { label: "Proses Payroll", href: "/admin/payroll/runs", icon: Calculator },
+        { label: "Disbursal Bank", href: "/admin/payroll/disbursal", icon: Landmark },
+        { label: "Pengaturan BPJS & Pajak", href: "/admin/payroll/settings", icon: Settings },
       ],
     },
     {

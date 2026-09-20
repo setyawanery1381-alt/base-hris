@@ -13,6 +13,7 @@ import {
   Bell,
   Sparkles,
   Building2,
+  Banknote,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
@@ -287,7 +288,7 @@ export default function EmployeeMobileDashboard() {
           <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 px-1">
             Menu Cepat
           </h2>
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
             {[
               {
                 label: "Absensi",
@@ -321,18 +322,26 @@ export default function EmployeeMobileDashboard() {
                   router.push("/employee/overtime");
                 },
               },
+              {
+                label: "Slip Gaji",
+                icon: Banknote,
+                color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+                onClick: () => {
+                  router.push("/employee/payslips");
+                },
+              },
             ].map((action, i) => {
               const Icon = action.icon;
               return (
                 <button
                   key={i}
                   onClick={action.onClick}
-                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow transition-all active:scale-95 text-center group"
+                  className="flex flex-col items-center justify-center p-2 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow transition-all active:scale-95 text-center group"
                 >
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border mb-1.5 ${action.color} group-hover:scale-105 transition-transform`}>
-                    <Icon className="w-5 h-5" />
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border mb-1.5 ${action.color} group-hover:scale-105 transition-transform`}>
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="text-[11px] font-bold text-slate-700 group-hover:text-slate-900">
+                  <span className="text-[10px] font-bold text-slate-700 group-hover:text-slate-900 truncate max-w-full">
                     {action.label}
                   </span>
                 </button>
