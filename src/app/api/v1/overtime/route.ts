@@ -314,7 +314,35 @@ export async function POST(req: Request) {
       },
     });
 
-    // 11. Create In-App Notification for HR / Managers
+    // 11. Spawn ApprovalRequest if workflow exists
+    const workflow = await db.approvalWorkflow.findFirst({
+      where: { companyId: session.companyId, module: "OVERTIME", isActive: true },
+      include: { steps: { orderBy: { stepOrder: "asc" } } },
+    });
+    if (workflow && workflow.steps.length > 0) {
+      const apprReq = await db.approvalRequest.create({
+        data: {
+          companyId: session.companyId,
+          workflowId: workflow.id,
+          referenceModule: "OVERTIME",
+          referenceId: ot.id,
+          requesterId: session.userId,
+          currentStepOrder: 1,
+          status: "PENDING",
+        },
+      });
+      await db.approvalHistory.create({
+        data: {
+          approvalRequestId: apprReq.id,
+          stepOrder: 1,
+          actorId: session.userId,
+          action: "SUBMITTED",
+          comments: "Pengajuan lembur diajukan oleh pemohon",
+        },
+      });
+    }
+
+    // 12. Create In-App Notification for HR / Managers
     const hrUsers = await db.user.findMany({
       where: {
         companyId: session.companyId,

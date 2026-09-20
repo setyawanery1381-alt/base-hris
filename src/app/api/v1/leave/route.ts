@@ -307,7 +307,35 @@ export async function POST(req: Request) {
       },
     });
 
-    // 7. Send In-App Notification to HR/Managers
+    // 7. Spawn ApprovalRequest if workflow exists
+    const workflow = await db.approvalWorkflow.findFirst({
+      where: { companyId: session.companyId, module: "LEAVE", isActive: true },
+      include: { steps: { orderBy: { stepOrder: "asc" } } },
+    });
+    if (workflow && workflow.steps.length > 0) {
+      const apprReq = await db.approvalRequest.create({
+        data: {
+          companyId: session.companyId,
+          workflowId: workflow.id,
+          referenceModule: "LEAVE",
+          referenceId: leave.id,
+          requesterId: session.userId,
+          currentStepOrder: 1,
+          status: "PENDING",
+        },
+      });
+      await db.approvalHistory.create({
+        data: {
+          approvalRequestId: apprReq.id,
+          stepOrder: 1,
+          actorId: session.userId,
+          action: "SUBMITTED",
+          comments: "Pengajuan diajukan oleh pemohon",
+        },
+      });
+    }
+
+    // 8. Send In-App Notification to HR/Managers
     await db.notification.create({
       data: {
         companyId: session.companyId,

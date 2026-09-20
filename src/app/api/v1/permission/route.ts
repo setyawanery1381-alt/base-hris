@@ -221,6 +221,34 @@ export async function POST(req: Request) {
       },
     });
 
+    // Spawn ApprovalRequest if workflow exists
+    const workflow = await db.approvalWorkflow.findFirst({
+      where: { companyId: session.companyId, module: "PERMISSION", isActive: true },
+      include: { steps: { orderBy: { stepOrder: "asc" } } },
+    });
+    if (workflow && workflow.steps.length > 0) {
+      const apprReq = await db.approvalRequest.create({
+        data: {
+          companyId: session.companyId,
+          workflowId: workflow.id,
+          referenceModule: "PERMISSION",
+          referenceId: permission.id,
+          requesterId: session.userId,
+          currentStepOrder: 1,
+          status: "PENDING",
+        },
+      });
+      await db.approvalHistory.create({
+        data: {
+          approvalRequestId: apprReq.id,
+          stepOrder: 1,
+          actorId: session.userId,
+          action: "SUBMITTED",
+          comments: "Pengajuan izin diajukan oleh pemohon",
+        },
+      });
+    }
+
     // Send In-App Notification to HR/Manager
     await db.notification.create({
       data: {
