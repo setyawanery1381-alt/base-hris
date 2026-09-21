@@ -31,6 +31,9 @@ import {
   Target,
   Briefcase,
   UserCheck,
+  Receipt,
+  Plane,
+  Laptop,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -103,6 +106,14 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Lowongan Pekerjaan", href: "/admin/recruitment/jobs", icon: Layers },
         { label: "Database Pelamar", href: "/admin/recruitment/candidates", icon: Users },
         { label: "Onboarding Karyawan", href: "/admin/recruitment/onboarding", icon: UserCheck },
+      ],
+    },
+    {
+      title: "OPERASIONAL & KEUANGAN",
+      items: [
+        { label: "Klaim & Reimbursement", href: "/admin/claims", icon: Receipt },
+        { label: "Perjalanan Dinas (SPPD)", href: "/admin/trips", icon: Plane },
+        { label: "Manajemen Aset Perusahaan", href: "/admin/assets", icon: Laptop },
       ],
     },
     {

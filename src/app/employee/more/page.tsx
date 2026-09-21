@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote, Award } from "lucide-react";
+import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote, Award, Receipt, Plane, Laptop } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { useTheme } from "@/components/layout/theme-provider";
 
@@ -75,6 +75,27 @@ export default function EmployeeMorePage() {
               <div className="flex items-center space-x-3">
                 <Award className="w-4 h-4 text-indigo-600" />
                 <span className="font-bold text-slate-800">Target & Rapor Kinerja (KPI)</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+            <button onClick={() => router.push("/employee/claims")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+              <div className="flex items-center space-x-3">
+                <Receipt className="w-4 h-4 text-teal-600" />
+                <span className="font-bold text-slate-800">Klaim & Reimbursement</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+            <button onClick={() => router.push("/employee/trips")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+              <div className="flex items-center space-x-3">
+                <Plane className="w-4 h-4 text-cyan-600" />
+                <span className="font-bold text-slate-800">Perjalanan Dinas (SPPD)</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+            <button onClick={() => router.push("/employee/assets")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+              <div className="flex items-center space-x-3">
+                <Laptop className="w-4 h-4 text-violet-600" />
+                <span className="font-bold text-slate-800">Aset Inventaris Saya</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>

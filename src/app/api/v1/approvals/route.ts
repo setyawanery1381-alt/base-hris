@@ -96,7 +96,7 @@ export async function GET(req: Request) {
     const otMap = new Map(overtimes.map((o) => [o.id, o]));
 
     // Also fetch direct pending requests for backwards compatibility or requests created before approval engine
-    const [directLeaves, directPerms, directOts] = await Promise.all([
+    const [directLeaves, directPerms, directOts, directClaims, directTrips] = await Promise.all([
       db.leaveRequest.findMany({
         where: { companyId: session.companyId, status: "PENDING" },
         include: { leaveType: true, employee: { include: { department: true, position: true, user: true } } },
@@ -108,6 +108,16 @@ export async function GET(req: Request) {
         orderBy: { createdAt: "desc" },
       }),
       db.overtimeRequest.findMany({
+        where: { companyId: session.companyId, status: "PENDING" },
+        include: { employee: { include: { department: true, position: true, user: true } } },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.reimbursement.findMany({
+        where: { companyId: session.companyId, status: "PENDING" },
+        include: { employee: { include: { department: true, position: true, user: true } }, items: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.businessTrip.findMany({
         where: { companyId: session.companyId, status: "PENDING" },
         include: { employee: { include: { department: true, position: true, user: true } } },
         orderBy: { createdAt: "desc" },
@@ -164,12 +174,16 @@ export async function GET(req: Request) {
         leaves: directLeaves,
         permissions: directPerms,
         overtimes: directOts,
+        claims: directClaims,
+        trips: directTrips,
       },
       counts: {
-        total: leaveCount + permCount + otCount,
+        total: leaveCount + permCount + otCount + directClaims.length + directTrips.length,
         leaves: leaveCount,
         permissions: permCount,
         overtimes: otCount,
+        claims: directClaims.length,
+        trips: directTrips.length,
       },
     });
   } catch (err: any) {

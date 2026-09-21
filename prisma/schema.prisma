@@ -66,6 +66,9 @@ model Company {
   jobPostings         JobPosting[]
   candidates          JobCandidate[]
   onboardingTasks     OnboardingTask[]
+  businessTrips       BusinessTrip[]
+  companyAssets       CompanyAsset[]
+  assetAssignments    AssetAssignment[]
 }
 
 model CompanyBranding {
@@ -314,6 +317,8 @@ model Employee {
   assignedEvaluations PerformanceReview[] @relation("ReviewerEvaluations")
   conductedInterviews CandidateInterview[]
   onboardingTasks     OnboardingTask[]
+  businessTrips       BusinessTrip[]
+  assetAssignments    AssetAssignment[]
 
   @@unique([companyId, employeeIdNumber])
 }
@@ -742,23 +747,155 @@ model AuditLog {
 }
 
 // -------------------------------------------------------------
-// 9. PHASE EXTENSIONS: FINANCE, SERVICE, ANNOUNCEMENTS
+// 9. PHASE 6: REIMBURSEMENT, BUSINESS TRIP (SPPD) & ASSET MANAGEMENT
 // -------------------------------------------------------------
 model Reimbursement {
-  id            String   @id @default(uuid())
-  companyId     String
-  employeeId    String
-  date          DateTime
-  category      String   // TRANSPORT, MEAL, MEDICAL, OPERATIONAL, OTHER
-  amount        Float
-  description   String
-  receiptUrl    String?
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String              @id @default(uuid())
+  companyId         String
+  employeeId        String
+  claimNumber       String              @unique // e.g. "CLM/2026/09/0001"
+  title             String
+  category          String              @default("GENERAL") // MEDICAL, TRANSPORT, MEAL, OPTICAL, COMMUNICATION, PROJECT_EXPENSE, OTHER
+  totalAmount       Float
+  approvedAmount    Float?
+  description       String?
+  receiptUrl        String?
+  status            String              @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  submissionDate    DateTime            @default(now())
+  approvedAt        DateTime?
+  approvedBy        String?
+  paidAt            DateTime?
+  paymentMethod     String?             // BANK_TRANSFER, CASH, PAYROLL_ADDITION
+  paymentReference  String?             // Ref / No. Transfer
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountHolder String?
+  rejectionReason   String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee          Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  items             ReimbursementItem[]
+
+  @@index([companyId, employeeId, status])
+}
+
+model ReimbursementItem {
+  id              String        @id @default(uuid())
+  reimbursementId String
+  date            DateTime
+  category        String        // MEDICAL, TRANSPORT, MEAL, OPTICAL, COMMUNICATION, PROJECT_EXPENSE, OTHER
+  amount          Float
+  merchantName    String?
+  receiptNumber   String?
+  receiptUrl      String?
+  description     String?
+  createdAt       DateTime      @default(now())
+
+  reimbursement   Reimbursement @relation(fields: [reimbursementId], references: [id], onDelete: Cascade)
+
+  @@index([reimbursementId])
+}
+
+model BusinessTrip {
+  id                   String        @id @default(uuid())
+  companyId            String
+  employeeId           String
+  tripNumber           String        @unique // e.g. "SPPD/2026/09/0001"
+  purpose              String        // Tujuan kegiatan / tugas dinas
+  origin               String        // Kota asal
+  destination          String        // Kota tujuan
+  startDate            DateTime      // Tanggal berangkat
+  endDate              DateTime      // Tanggal kembali
+  durationDays         Int           @default(1)
+  transportType        String        @default("FLIGHT") // FLIGHT, TRAIN, CAR_RENTAL, COMPANY_CAR, PUBLIC_TRANSPORT
+  accommodation        String?       // Hotel / Penginapan
+  perDiemRate          Float         @default(0) // Uang saku harian
+  totalPerDiem         Float         @default(0) // perDiemRate * durationDays
+  cashAdvance          Float         @default(0) // Uang muka yang diajukan
+  disbursedCashAdvance Float?        // Uang muka yang dicairkan keuangan
+  actualExpense        Float?        // Total realisasi pengeluaran dinas
+  settlementBalance    Float?        // Selisih: (cashAdvance - actualExpense). Positif = lebih bayar (kembalikan ke kantor), Negatif = kurang bayar (reimburse kantor ke karyawan)
+  settlementStatus     String        @default("NOT_SETTLED") // NOT_SETTLED, SUBMITTED, SETTLED
+  settlementNotes      String?
+  status               String        @default("PENDING") // PENDING, APPROVED, REJECTED, DISBURSED, COMPLETED, CANCELLED
+  approvedAt           DateTime?
+  approvedBy           String?
+  rejectionReason      String?
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  company              Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee             Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  expenses             TripExpense[]
+
+  @@index([companyId, employeeId, status])
+}
+
+model TripExpense {
+  id             String       @id @default(uuid())
+  businessTripId String
+  date           DateTime
+  category       String       // TRANSPORT, LODGING, MEAL, POCKET_MONEY, OTHER
+  amount         Float
+  merchantName   String?
+  receiptUrl     String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+
+  businessTrip   BusinessTrip @relation(fields: [businessTripId], references: [id], onDelete: Cascade)
+
+  @@index([businessTripId])
+}
+
+model CompanyAsset {
+  id             String            @id @default(uuid())
+  companyId      String
+  assetCode      String            @unique // e.g. "AST-LAP-0001"
+  name           String            // e.g. "MacBook Pro M3 Max"
+  category       String            // LAPTOP, DESKTOP, MONITOR, PHONE, VEHICLE, OFFICE_EQUIPMENT, FURNITURE, OTHER
+  brand          String?
+  model          String?
+  serialNumber   String?
+  purchaseDate   DateTime?
+  purchasePrice  Float?
+  warrantyExpiry DateTime?
+  condition      String            @default("GOOD") // EXCELLENT, GOOD, FAIR, DAMAGED, DISPOSED
+  status         String            @default("AVAILABLE") // AVAILABLE, ASSIGNED, IN_MAINTENANCE, DISPOSED, LOST
+  location       String?
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assignments    AssetAssignment[]
+
+  @@index([companyId, category, status])
+}
+
+model AssetAssignment {
+  id                 String       @id @default(uuid())
+  companyId          String
+  assetId            String
+  employeeId         String
+  assignedDate       DateTime     @default(now())
+  expectedReturnDate DateTime?
+  returnDate         DateTime?
+  handoverCondition  String       @default("GOOD") // EXCELLENT, GOOD, FAIR
+  returnCondition    String?      // EXCELLENT, GOOD, FAIR, DAMAGED
+  handoverNotes      String?      // BAST Notes
+  returnNotes        String?
+  status             String       @default("ACTIVE") // ACTIVE, RETURNED
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  company            Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  asset              CompanyAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee           Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId, status])
 }
 
 

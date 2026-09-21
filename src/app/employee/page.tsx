@@ -16,6 +16,9 @@ import {
   Banknote,
   Award,
   Target,
+  Receipt,
+  Plane,
+  Laptop,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
@@ -338,6 +341,30 @@ export default function EmployeeMobileDashboard() {
                 color: "bg-indigo-50 text-indigo-600 border-indigo-200",
                 onClick: () => {
                   router.push("/employee/performance");
+                },
+              },
+              {
+                label: "Klaim/Reimburse",
+                icon: Receipt,
+                color: "bg-teal-50 text-teal-600 border-teal-200",
+                onClick: () => {
+                  router.push("/employee/claims");
+                },
+              },
+              {
+                label: "Dinas (SPPD)",
+                icon: Plane,
+                color: "bg-cyan-50 text-cyan-600 border-cyan-200",
+                onClick: () => {
+                  router.push("/employee/trips");
+                },
+              },
+              {
+                label: "Aset Saya",
+                icon: Laptop,
+                color: "bg-violet-50 text-violet-600 border-violet-200",
+                onClick: () => {
+                  router.push("/employee/assets");
                 },
               },
             ].map((action, i) => {
