@@ -1,7 +1,21 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote, Award, Receipt, Plane, Laptop } from "lucide-react";
+import {
+  Sparkles,
+  Building2,
+  HelpCircle,
+  LogOut,
+  FileText,
+  ChevronRight,
+  Banknote,
+  Award,
+  Receipt,
+  Plane,
+  Laptop,
+  Megaphone,
+  FileCheck,
+} from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { useTheme } from "@/components/layout/theme-provider";
 
@@ -99,24 +113,24 @@ export default function EmployeeMorePage() {
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
-            <button onClick={() => alert("Pengumuman: Tidak ada pengumuman mendesak.")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+            <button onClick={() => router.push("/employee/announcements")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
               <div className="flex items-center space-x-3">
-                <Sparkles className="w-4 h-4 text-teal-600" />
-                <span>Pengumuman Perusahaan</span>
+                <Megaphone className="w-4 h-4 text-indigo-600" />
+                <span className="font-bold text-slate-800">Pengumuman Perusahaan</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
-            <button onClick={() => alert("Struktur Organisasi: Kanaya Multi Solusindo (Tech & HR).")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+            <button onClick={() => router.push("/employee/letters")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
               <div className="flex items-center space-x-3">
-                <Building2 className="w-4 h-4 text-teal-600" />
-                <span>Struktur Organisasi</span>
+                <FileCheck className="w-4 h-4 text-blue-600" />
+                <span className="font-bold text-slate-800">Surat Resmi & Paklaring</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
-            <button onClick={() => alert("HR Service Desk: Hubungi hr@kanaya.com untuk tiket baru.")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+            <button onClick={() => router.push("/employee/services")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
               <div className="flex items-center space-x-3">
-                <FileText className="w-4 h-4 text-teal-600" />
-                <span>HR Service Desk (Tiket)</span>
+                <HelpCircle className="w-4 h-4 text-teal-600" />
+                <span className="font-bold text-slate-800">HR Service Desk (Tiket & Bantuan)</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>

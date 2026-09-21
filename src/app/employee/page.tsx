@@ -19,6 +19,9 @@ import {
   Receipt,
   Plane,
   Laptop,
+  FileCheck,
+  HelpCircle,
+  Megaphone,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
@@ -31,6 +34,7 @@ export default function EmployeeMobileDashboard() {
   const { theme } = useTheme();
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [todayData, setTodayData] = useState<any>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isAttendModalOpen, setIsAttendModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"checkin" | "checkout">("checkin");
@@ -44,9 +48,10 @@ export default function EmployeeMobileDashboard() {
 
   const loadData = async () => {
     try {
-      const [authRes, todayRes] = await Promise.all([
+      const [authRes, todayRes, annRes] = await Promise.all([
         fetch("/api/v1/auth/me"),
         fetch("/api/v1/attendance/today"),
+        fetch("/api/v1/announcements"),
       ]);
 
       if (authRes.ok) {
@@ -56,6 +61,10 @@ export default function EmployeeMobileDashboard() {
       if (todayRes.ok) {
         const today = await todayRes.json();
         setTodayData(today);
+      }
+      if (annRes.ok) {
+        const annData = await annRes.json();
+        setAnnouncements(annData.data || []);
       }
     } catch (e) {
       console.error(e);
@@ -367,6 +376,22 @@ export default function EmployeeMobileDashboard() {
                   router.push("/employee/assets");
                 },
               },
+              {
+                label: "Surat Resmi",
+                icon: FileCheck,
+                color: "bg-blue-50 text-blue-600 border-blue-200",
+                onClick: () => {
+                  router.push("/employee/letters");
+                },
+              },
+              {
+                label: "HR Tiket",
+                icon: HelpCircle,
+                color: "bg-teal-50 text-teal-600 border-teal-200",
+                onClick: () => {
+                  router.push("/employee/services");
+                },
+              },
             ].map((action, i) => {
               const Icon = action.icon;
               return (
@@ -456,23 +481,59 @@ export default function EmployeeMobileDashboard() {
         {/* Company Announcements */}
         <div className="px-4 mb-6">
           <div className="flex items-center justify-between mb-2.5 px-1">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Pengumuman Perusahaan
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+              <Megaphone className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Pengumuman Perusahaan</span>
             </span>
-            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+            <button
+              onClick={() => router.push("/employee/announcements")}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-0.5 cursor-pointer"
+            >
+              <span>Lihat Semua</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-2">
-            <div className="flex items-center space-x-2">
-              <Badge variant="primary" className="text-[10px]">HR INFO</Badge>
-              <span className="text-[10px] text-slate-400">18 September 2026</span>
+          {announcements.length > 0 ? (
+            <div
+              onClick={() => router.push("/employee/announcements")}
+              className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-2 cursor-pointer hover:border-indigo-200 transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <Badge variant="primary" className="text-[10px]">
+                  {announcements[0].category || "HR INFO"}
+                </Badge>
+                <span className="text-[10px] text-slate-400">
+                  {new Date(announcements[0].date || announcements[0].createdAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-800 line-clamp-1">
+                {announcements[0].title}
+              </h4>
+              <p className="text-[11px] text-slate-500 line-clamp-2">
+                {announcements[0].content}
+              </p>
             </div>
-            <h4 className="text-xs font-bold text-slate-800">
-              Pembaruan Kebijakan Absensi & Geofencing SaaS BASE HRIS
-            </h4>
-            <p className="text-[11px] text-slate-500 line-clamp-2">
-              Karyawan diwajibkan melakukan selfie verification dan memastikan GPS aktif dalam radius geofence kantor saat melakukan check-in.
-            </p>
-          </div>
+          ) : (
+            <div
+              onClick={() => router.push("/employee/announcements")}
+              className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm space-y-2 cursor-pointer"
+            >
+              <div className="flex items-center space-x-2">
+                <Badge variant="primary" className="text-[10px]">HR INFO</Badge>
+                <span className="text-[10px] text-slate-400">BASE HRIS</span>
+              </div>
+              <h4 className="text-xs font-bold text-slate-800">
+                Pusat Informasi & Broadcast Resmi Perusahaan
+              </h4>
+              <p className="text-[11px] text-slate-500 line-clamp-2">
+                Seluruh pengumuman resmi direksi, surat edaran, regulasi kantor, dan agenda kerja akan ditampilkan di kanal ini.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

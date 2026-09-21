@@ -69,6 +69,7 @@ model Company {
   businessTrips       BusinessTrip[]
   companyAssets       CompanyAsset[]
   assetAssignments    AssetAssignment[]
+  employeeLetters     EmployeeLetter[]
 }
 
 model CompanyBranding {
@@ -319,6 +320,7 @@ model Employee {
   onboardingTasks     OnboardingTask[]
   businessTrips       BusinessTrip[]
   assetAssignments    AssetAssignment[]
+  letters             EmployeeLetter[]
 
   @@unique([companyId, employeeIdNumber])
 }
@@ -899,33 +901,95 @@ model AssetAssignment {
 }
 
 
+// -------------------------------------------------------------
+// 9.5 PHASE 7: HR SERVICE DESK, LETTERS GENERATOR & ANNOUNCEMENTS
+// -------------------------------------------------------------
 model Announcement {
-  id          String   @id @default(uuid())
-  companyId   String
-  title       String
-  content     String
-  target      String   @default("ALL") // ALL, DEPARTMENT, LOCATION
-  date        DateTime @default(now())
-  imageUrl    String?
-  createdAt   DateTime @default(now())
+  id                 String    @id @default(uuid())
+  companyId          String
+  title              String
+  content            String
+  category           String    @default("GENERAL") // GENERAL, POLICY_UPDATE, HOLIDAY, EVENT, URGENT
+  priority           String    @default("NORMAL")  // NORMAL, IMPORTANT, CRITICAL
+  target             String    @default("ALL")     // ALL, DEPARTMENT, LOCATION
+  targetDepartmentId String?
+  targetLocationId   String?
+  date               DateTime  @default(now())
+  imageUrl           String?
+  authorName         String?
+  isPinned           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, target, isPinned])
 }
 
 model HrServiceRequest {
-  id          String   @id @default(uuid())
-  companyId   String
-  employeeId  String
-  ticketNumber String  @unique // e.g. "TKT-2026-001"
-  category    String   // EMPLOYMENT_LETTER, SALARY_LETTER, DATA_CHANGE, BPJS, OTHER
-  subject     String
-  description String
-  status      String   @default("SUBMITTED") // SUBMITTED, PROCESSING, COMPLETED, CLOSED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String             @id @default(uuid())
+  companyId       String
+  employeeId      String
+  ticketNumber    String             @unique // e.g. "TKT/2026/09/0001"
+  category        String             // EMPLOYMENT_LETTER, SALARY_LETTER, DATA_CHANGE, BPJS, OFFBOARDING, GENERAL
+  priority        String             @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  subject         String
+  description     String
+  status          String             @default("SUBMITTED") // SUBMITTED, IN_REVIEW, IN_PROGRESS, RESOLVED, CLOSED
+  assignedTo      String?            // PIC HR Name
+  resolutionNotes String?
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee        Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  comments        HrServiceComment[]
+
+  @@index([companyId, employeeId, status])
+}
+
+model HrServiceComment {
+  id               String           @id @default(uuid())
+  serviceRequestId String
+  authorId         String?
+  authorRole       String           @default("EMPLOYEE") // EMPLOYEE, HR
+  authorName       String
+  message          String
+  attachmentUrl    String?
+  createdAt        DateTime         @default(now())
+
+  serviceRequest   HrServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
+  @@index([serviceRequestId])
+}
+
+model EmployeeLetter {
+  id                 String    @id @default(uuid())
+  companyId          String
+  employeeId         String
+  letterNumber       String    @unique // e.g. "042/HR-SKK/KMS/IX/2026"
+  type               String    // SK_AKTIF_KERJA, SK_PENGHASILAN, SURAT_PERINGATAN_1, SURAT_PERINGATAN_2, SURAT_PERINGATAN_3, PAKLARING
+  title              String
+  issuedDate         DateTime  @default(now())
+  effectiveDate      DateTime?
+  validUntil         DateTime?
+  purpose            String?   // Keperluan, e.g. "Pengajuan KPR Bank Mandiri"
+  signerName         String    // e.g. "Hendra Setiawan, S.H."
+  signerPosition     String    // e.g. "Head of Human Capital"
+  signerNik          String?
+  contentData        String?   // JSON structured extra data
+  status             String    @default("PUBLISHED") // DRAFT, PUBLISHED, REVOKED
+  documentUrl        String?
+  qrCodeVerification String?   // Verification string / hash
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId, type, status])
 }
 
 // -------------------------------------------------------------

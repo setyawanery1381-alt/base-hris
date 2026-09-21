@@ -34,6 +34,9 @@ import {
   Receipt,
   Plane,
   Laptop,
+  HelpCircle,
+  FileCheck,
+  Megaphone,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -114,6 +117,14 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Klaim & Reimbursement", href: "/admin/claims", icon: Receipt },
         { label: "Perjalanan Dinas (SPPD)", href: "/admin/trips", icon: Plane },
         { label: "Manajemen Aset Perusahaan", href: "/admin/assets", icon: Laptop },
+      ],
+    },
+    {
+      title: "LAYANAN & KOMUNIKASI",
+      items: [
+        { label: "HR Service Desk & Tiket", href: "/admin/services", icon: HelpCircle },
+        { label: "Surat Resmi & Paklaring", href: "/admin/letters", icon: FileCheck },
+        { label: "Pengumuman Perusahaan", href: "/admin/announcements", icon: Megaphone },
       ],
     },
     {
