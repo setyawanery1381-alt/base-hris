@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote } from "lucide-react";
+import { Sparkles, Building2, HelpCircle, LogOut, FileText, ChevronRight, Banknote, Award } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { useTheme } from "@/components/layout/theme-provider";
 
@@ -68,6 +68,13 @@ export default function EmployeeMorePage() {
               <div className="flex items-center space-x-3">
                 <Banknote className="w-4 h-4 text-emerald-600" />
                 <span className="font-bold text-slate-800">Slip Gaji Digital</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+            <button onClick={() => router.push("/employee/performance")} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 text-left">
+              <div className="flex items-center space-x-3">
+                <Award className="w-4 h-4 text-indigo-600" />
+                <span className="font-bold text-slate-800">Target & Rapor Kinerja (KPI)</span>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>

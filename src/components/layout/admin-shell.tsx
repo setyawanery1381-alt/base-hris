@@ -27,6 +27,8 @@ import {
   CreditCard,
   Calculator,
   Landmark,
+  Award,
+  Target,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -81,6 +83,15 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Proses Payroll", href: "/admin/payroll/runs", icon: Calculator },
         { label: "Disbursal Bank", href: "/admin/payroll/disbursal", icon: Landmark },
         { label: "Pengaturan BPJS & Pajak", href: "/admin/payroll/settings", icon: Settings },
+      ],
+    },
+    {
+      title: "KINERJA & KPI",
+      items: [
+        { label: "Dashboard Kinerja", href: "/admin/performance", icon: Award },
+        { label: "Periode Penilaian", href: "/admin/performance/cycles", icon: CalendarRange },
+        { label: "Library KPI & Target", href: "/admin/performance/kpis", icon: Target },
+        { label: "Evaluasi Karyawan", href: "/admin/performance/reviews", icon: CheckCircle2 },
       ],
     },
     {

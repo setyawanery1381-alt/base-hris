@@ -14,6 +14,8 @@ import {
   Sparkles,
   Building2,
   Banknote,
+  Award,
+  Target,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
@@ -288,7 +290,7 @@ export default function EmployeeMobileDashboard() {
           <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 px-1">
             Menu Cepat
           </h2>
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
             {[
               {
                 label: "Absensi",
@@ -330,6 +332,14 @@ export default function EmployeeMobileDashboard() {
                   router.push("/employee/payslips");
                 },
               },
+              {
+                label: "Kinerja/KPI",
+                icon: Award,
+                color: "bg-indigo-50 text-indigo-600 border-indigo-200",
+                onClick: () => {
+                  router.push("/employee/performance");
+                },
+              },
             ].map((action, i) => {
               const Icon = action.icon;
               return (
@@ -347,6 +357,32 @@ export default function EmployeeMobileDashboard() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Performance & KPI Banner */}
+        <div className="px-4 mb-5">
+          <div
+            onClick={() => router.push("/employee/performance")}
+            className="p-4 rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white shadow-md border border-indigo-800/40 flex items-center justify-between cursor-pointer hover:border-indigo-700 transition-all active:scale-[0.99]"
+          >
+            <div className="flex items-center space-x-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold">Target & Penilaian Kinerja</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                    Aktif
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Update progres KPI & isi lembar evaluasi mandiri semester ini
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-indigo-300 shrink-0" />
           </div>
         </div>
 
