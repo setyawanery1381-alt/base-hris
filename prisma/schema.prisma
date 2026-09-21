@@ -63,6 +63,9 @@ model Company {
   kpiTemplates        KpiTemplate[]
   performanceGoals    PerformanceGoal[]
   performanceReviews  PerformanceReview[]
+  jobPostings         JobPosting[]
+  candidates          JobCandidate[]
+  onboardingTasks     OnboardingTask[]
 }
 
 model CompanyBranding {
@@ -141,6 +144,7 @@ model Department {
   positions Position[]
   employees Employee[]
   kpiTemplates KpiTemplate[]
+  jobPostings  JobPosting[]
 }
 
 model Team {
@@ -169,6 +173,7 @@ model Position {
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   employees  Employee[]
+  jobPostings JobPosting[]
 }
 
 model Location {
@@ -307,6 +312,8 @@ model Employee {
   performanceGoals    PerformanceGoal[]
   performanceReviews  PerformanceReview[] @relation("EmployeeReviews")
   assignedEvaluations PerformanceReview[] @relation("ReviewerEvaluations")
+  conductedInterviews CandidateInterview[]
+  onboardingTasks     OnboardingTask[]
 
   @@unique([companyId, employeeIdNumber])
 }
@@ -1098,5 +1105,124 @@ model ReviewItem {
 
   review PerformanceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 }
+
+// -------------------------------------------------------------
+// 13. RECRUITMENT & ONBOARDING (ATS)
+// -------------------------------------------------------------
+model JobPosting {
+  id              String         @id @default(uuid())
+  companyId       String
+  departmentId    String?
+  positionId      String?
+  title           String         // e.g. "Senior Frontend Engineer"
+  slug            String?
+  employmentType  String         @default("FULL_TIME") // FULL_TIME, CONTRACT, INTERN, PART_TIME
+  experienceLevel String         @default("MID") // ENTRY, MID, SENIOR, LEAD
+  location        String?        @default("Jakarta (Hybrid)")
+  minSalary       Float?
+  maxSalary       Float?
+  quota           Int            @default(1)
+  description     String
+  requirements    String
+  status          String         @default("PUBLISHED") // DRAFT, PUBLISHED, CLOSED, ARCHIVED
+  publishedAt     DateTime?      @default(now())
+  deadlineDate    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position   Position?      @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  candidates JobCandidate[]
+
+  @@index([companyId, status])
+}
+
+model JobCandidate {
+  id               String               @id @default(uuid())
+  companyId        String
+  jobPostingId     String
+  fullName         String
+  email            String
+  phone            String
+  resumeUrl        String?
+  portfolioUrl     String?
+  linkedinUrl      String?
+  currentCompany   String?
+  currentSalary    Float?
+  expectedSalary   Float?
+  noticePeriodDays Int?                 @default(30)
+  stage            String               @default("APPLIED") // APPLIED, SCREENING, INTERVIEW_HR, INTERVIEW_USER, OFFERING, HIRED, REJECTED
+  rating           Float?               // 1.0 - 5.0
+  source           String?              @default("CAREER_PORTAL") // CAREER_PORTAL, LINKEDIN, REFERRAL, JOB_FAIR
+  notes            String?
+  rejectionReason  String?
+  hiredEmployeeId  String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  company    Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting           @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  interviews CandidateInterview[]
+  offers     JobOffer[]
+
+  @@index([companyId, jobPostingId, stage])
+}
+
+model CandidateInterview {
+  id               String       @id @default(uuid())
+  candidateId      String
+  interviewerId    String?      // Employee ID
+  stage            String       @default("INTERVIEW_HR") // INTERVIEW_HR, INTERVIEW_USER, TECHNICAL_TEST, FINAL_INTERVIEW
+  scheduledAt      DateTime
+  locationType     String       @default("ONLINE_MEETING") // ONLINE_MEETING, OFFLINE_OFFICE
+  meetingLink      String?
+  locationAddress  String?
+  status           String       @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+  interviewerScore Float?       // 1.0 - 5.0
+  feedbackNotes    String?
+  decision         String?      // RECOMMEND_HIRE, CONSIDER, REJECT
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  candidate   JobCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviewer Employee?    @relation(fields: [interviewerId], references: [id], onDelete: SetNull)
+}
+
+model JobOffer {
+  id               String       @id @default(uuid())
+  candidateId      String
+  offeredPosition  String
+  offeredSalary    Float
+  allowanceDetails String?
+  startDate        DateTime
+  expiryDate       DateTime
+  status           String       @default("SENT") // DRAFT, SENT, ACCEPTED, DECLINED, EXPIRED
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  candidate JobCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+model OnboardingTask {
+  id          String    @id @default(uuid())
+  companyId   String
+  employeeId  String
+  title       String
+  category    String    @default("DOCUMENT") // DOCUMENT, IT_SETUP, HR_ORIENTATION, TEAM_INTRO, TRAINING
+  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId, status])
+}
+
 
 

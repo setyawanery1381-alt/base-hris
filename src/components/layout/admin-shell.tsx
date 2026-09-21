@@ -29,6 +29,8 @@ import {
   Landmark,
   Award,
   Target,
+  Briefcase,
+  UserCheck,
 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Avatar } from "../ui/avatar";
@@ -92,6 +94,15 @@ export const AdminShell: React.FC<AdminShellProps> = ({ children, user }) => {
         { label: "Periode Penilaian", href: "/admin/performance/cycles", icon: CalendarRange },
         { label: "Library KPI & Target", href: "/admin/performance/kpis", icon: Target },
         { label: "Evaluasi Karyawan", href: "/admin/performance/reviews", icon: CheckCircle2 },
+      ],
+    },
+    {
+      title: "REKRUTMEN & ONBOARDING (ATS)",
+      items: [
+        { label: "Dashboard ATS & Pipeline", href: "/admin/recruitment", icon: Briefcase },
+        { label: "Lowongan Pekerjaan", href: "/admin/recruitment/jobs", icon: Layers },
+        { label: "Database Pelamar", href: "/admin/recruitment/candidates", icon: Users },
+        { label: "Onboarding Karyawan", href: "/admin/recruitment/onboarding", icon: UserCheck },
       ],
     },
     {
