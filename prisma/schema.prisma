@@ -333,6 +333,7 @@ model EmployeePersonalData {
   gender             String?   // MALE, FEMALE
   address            String?
   phone              String?
+  idCardNumber       String?   // NIK KTP (16 digit)
   npwp               String?
   bpjsKesehatan      String?
   bpjsKetenagakerjaan String?
@@ -1025,6 +1026,7 @@ model EmployeeSalaryProfile {
   bankAccountNumber          String?
   bankAccountHolder          String?
   taxStatus                  String   @default("TK/0") // TK/0, TK/1, TK/2, TK/3, K/0, K/1, K/2, K/3
+  idCardNumber               String?  // NIK KTP 16 digit
   npwp                       String?
   bpjsKesehatanNumber        String?
   bpjsKetenagakerjaanNumber    String?
