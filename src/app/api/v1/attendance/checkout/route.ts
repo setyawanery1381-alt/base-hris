@@ -2,21 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
-
-function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
+import {
+  calculateDistanceMeters,
+  isValidCoordinates,
+  detectMockLocation,
+  evaluateGeofence,
+} from "@/lib/geofence";
 
 export async function POST(req: Request) {
   try {
@@ -70,6 +61,7 @@ export async function POST(req: Request) {
     let photoUrl: string | undefined;
     let areaPhotoUrl: string | undefined;
     let accuracyMeters: number | undefined;
+    let isMockedFromDevice: boolean | undefined;
     let notes: string | undefined;
 
     try {
@@ -79,6 +71,7 @@ export async function POST(req: Request) {
       photoUrl = body?.photoUrl;
       areaPhotoUrl = body?.areaPhotoUrl;
       accuracyMeters = body?.accuracyMeters;
+      isMockedFromDevice = body?.isMockedFromDevice;
       notes = body?.notes;
     } catch {}
 
@@ -102,17 +95,56 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Calculate distance if coordinates provided
-    let distanceMeters: number | undefined;
-    if (latitude !== undefined && longitude !== undefined && employee?.location) {
-      distanceMeters = Math.round(
-        getDistanceMeters(
-          latitude,
-          longitude,
-          employee.location.latitude,
-          employee.location.longitude
-        )
-      );
+    // Validate coordinates & Anti-spoofing for checkout
+    let isMock = false;
+    let mockReason: string | undefined;
+    let distanceMeters = 0;
+    let geofenceTag = "";
+
+    if (latitude !== undefined && longitude !== undefined) {
+      if (!isValidCoordinates(Number(latitude), Number(longitude))) {
+        return NextResponse.json({ error: "Koordinat GPS perangkat checkout tidak valid." }, { status: 400 });
+      }
+
+      // Check teleportation velocity against check-in location
+      if (policy?.detectMockLocation !== false) {
+        const mockCheck = detectMockLocation({
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          accuracyMeters: accuracyMeters ? Number(accuracyMeters) : null,
+          isMockedFromDevice: Boolean(isMockedFromDevice),
+          previousLocation:
+            record.checkInLatitude && record.checkInLongitude && record.checkInTime
+              ? {
+                  latitude: record.checkInLatitude,
+                  longitude: record.checkInLongitude,
+                  timestamp: record.checkInTime,
+                }
+              : null,
+          currentTime: now,
+        });
+
+        if (mockCheck.isMock) {
+          isMock = true;
+          mockReason = mockCheck.reason;
+        }
+      }
+
+      // Geofence evaluation
+      const geofenceRes = evaluateGeofence({
+        effectiveMode: record.attendanceMode || "OFFICE",
+        workType: record.workType,
+        currentLat: Number(latitude),
+        currentLng: Number(longitude),
+        officeLat: employee?.location?.latitude,
+        officeLng: employee?.location?.longitude,
+        officeRadiusMeters: employee?.location?.radiusMeters,
+        policyRadiusMeters: policy?.geofenceRadiusMeters,
+        allowOutsideRadius: policy?.allowOutsideRadius,
+      });
+
+      distanceMeters = geofenceRes.distanceMeters;
+      geofenceTag = geofenceRes.noteTag || "";
     }
 
     // 3. Work Duration Calculation
@@ -167,6 +199,19 @@ export async function POST(req: Request) {
         ? `${updatedNotes} [Lembur: ${overtimeMinutes}m]`
         : `[Lembur: ${overtimeMinutes}m]`;
     }
+    if (geofenceTag) {
+      updatedNotes = updatedNotes ? `${updatedNotes} ${geofenceTag}` : geofenceTag;
+    }
+    if (isMock) {
+      updatedNotes = updatedNotes
+        ? `${updatedNotes} [FLAG: ${mockReason || "Fake GPS Terindikasi"}]`
+        : `[FLAG: ${mockReason || "Fake GPS Terindikasi"}]`;
+    }
+    if (accuracyMeters && accuracyMeters > (policy?.maxAllowedAccuracyMeters || 100)) {
+      updatedNotes = updatedNotes
+        ? `${updatedNotes} [GPS Akurasi Rendah: ±${Math.round(accuracyMeters)}m]`
+        : `[GPS Akurasi Rendah: ±${Math.round(accuracyMeters)}m]`;
+    }
     if (notes) {
       updatedNotes = updatedNotes ? `${updatedNotes} - ${notes}` : notes;
     }
@@ -175,12 +220,14 @@ export async function POST(req: Request) {
       where: { id: record.id },
       data: {
         checkOutTime: now,
-        checkOutLatitude: latitude,
-        checkOutLongitude: longitude,
+        checkOutLatitude: latitude ? Number(latitude) : null,
+        checkOutLongitude: longitude ? Number(longitude) : null,
+        checkOutAccuracyMeters: accuracyMeters ? Number(accuracyMeters) : null,
+        isCheckOutMockLocation: isMock,
         checkOutPhotoUrl: photoUrl,
         checkOutAreaPhotoUrl: areaPhotoUrl || null,
         checkOutDistanceMeters: distanceMeters,
-        checkOutAddress: employee?.location?.address || "Kantor Utama",
+        checkOutAddress: employee?.location?.address || "Area Selesai Kerja",
         workDurationMinutes,
         status,
         notes: updatedNotes || null,

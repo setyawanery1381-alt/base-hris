@@ -398,6 +398,8 @@ model AttendancePolicy {
   attendanceMode                String   @default("OFFICE") // OFFICE, FIELD, HYBRID
   allowOutsideRadius            Boolean  @default(false)
   visitRadiusMeters             Int      @default(100)
+  maxAllowedAccuracyMeters      Int      @default(100)
+  detectMockLocation            Boolean  @default(true)
   photoRetentionDays            Int      @default(180)
   allowAttendanceDispute        Boolean  @default(true)
   breakDurationMinutes          Int      @default(60)
@@ -420,12 +422,16 @@ model Attendance {
   checkInTime           DateTime?
   checkInLatitude       Float?
   checkInLongitude      Float?
+  checkInAccuracyMeters Float?
+  isCheckInMockLocation Boolean   @default(false)
   checkInPhotoUrl       String?
   checkInDistanceMeters Float?
   checkInAddress        String?
   checkOutTime          DateTime?
   checkOutLatitude      Float?
   checkOutLongitude     Float?
+  checkOutAccuracyMeters Float?
+  isCheckOutMockLocation Boolean  @default(false)
   checkOutPhotoUrl      String?
   checkOutDistanceMeters Float?
   checkOutAddress       String?
@@ -433,6 +439,7 @@ model Attendance {
   status                String    @default("PRESENT") // PRESENT, LATE, EARLY_LEAVE, ABSENT
   workType              String    @default("WFO") // WFO, WFH, FIELD
   attendanceMode        String?   @default("OFFICE") // OFFICE, FIELD, HYBRID
+  deviceInfo            String?
   notes                 String?
   checkInAreaPhotoUrl   String?
   checkOutAreaPhotoUrl  String?

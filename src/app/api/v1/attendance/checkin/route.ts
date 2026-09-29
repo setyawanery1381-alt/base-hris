@@ -2,22 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { recordAuditLog } from "@/lib/audit";
-
-// Haversine formula to calculate distance in meters
-function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
+import {
+  calculateDistanceMeters,
+  isValidCoordinates,
+  detectMockLocation,
+  evaluateGeofence,
+} from "@/lib/geofence";
 
 const DAY_MAP = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -29,7 +19,16 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { latitude, longitude, photoUrl, areaPhotoUrl, accuracyMeters, workType = "WFO", notes } = body;
+    const {
+      latitude,
+      longitude,
+      photoUrl,
+      areaPhotoUrl,
+      accuracyMeters,
+      isMockedFromDevice,
+      workType = "WFO",
+      notes,
+    } = body;
 
     const employee = await db.employee.findUnique({
       where: { id: session.employeeId },
@@ -124,38 +123,69 @@ export async function POST(req: Request) {
         ? employee.attendanceMode
         : policy?.attendanceMode || "OFFICE";
 
-    // 3. Geofence & Location Validation
-    let distanceMeters = 0;
-    let isOutsideAllowed = false;
+    // 3. Geofence & Location Validation + Mock GPS Detection
+    let isMock = false;
+    let mockReason: string | undefined;
 
-    if (policy?.isGpsRequired && employee.location) {
-      if (latitude === undefined || longitude === undefined) {
-        return NextResponse.json({ error: "Koordinat GPS perangkat wajib disertakan." }, { status: 400 });
+    if (policy?.isGpsRequired && (latitude === undefined || longitude === undefined)) {
+      return NextResponse.json({ error: "Koordinat GPS perangkat wajib disertakan." }, { status: 400 });
+    }
+
+    if (latitude !== undefined && longitude !== undefined) {
+      if (!isValidCoordinates(Number(latitude), Number(longitude))) {
+        return NextResponse.json({ error: "Koordinat GPS perangkat tidak valid atau di luar jangkauan." }, { status: 400 });
       }
 
-      distanceMeters = getDistanceMeters(
-        latitude,
-        longitude,
-        employee.location.latitude,
-        employee.location.longitude
-      );
+      // Anti-spoofing / Mock Location check
+      if (policy?.detectMockLocation !== false) {
+        const prevAtt = await db.attendance.findFirst({
+          where: {
+            companyId: session.companyId,
+            employeeId: session.employeeId,
+            checkInLatitude: { not: null },
+            checkInLongitude: { not: null },
+          },
+          orderBy: { checkInTime: "desc" },
+        });
 
-      const maxRadius = policy.geofenceRadiusMeters || employee.location.radiusMeters || 100;
+        const mockCheck = detectMockLocation({
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          accuracyMeters: accuracyMeters ? Number(accuracyMeters) : null,
+          isMockedFromDevice: Boolean(isMockedFromDevice),
+          previousLocation:
+            prevAtt && prevAtt.checkInLatitude && prevAtt.checkInLongitude && prevAtt.checkInTime
+              ? {
+                  latitude: prevAtt.checkInLatitude,
+                  longitude: prevAtt.checkInLongitude,
+                  timestamp: prevAtt.checkInTime,
+                }
+              : null,
+          currentTime: now,
+        });
 
-      // FIELD attendance is mobile/field work: office geofence restriction waived
-      if (effectiveAttendanceMode === "FIELD") {
-        // Mobile field attendance: GPS coordinates recorded
-      } else if (effectiveAttendanceMode === "HYBRID" && (workType === "FIELD" || workType === "WFH")) {
-        // Hybrid mobile/remote check-in
-      } else if (distanceMeters > maxRadius && workType === "WFO") {
-        if (policy?.allowOutsideRadius) {
-          isOutsideAllowed = true;
-        } else {
-          return NextResponse.json({
-            error: `Anda berada di luar radius kantor (${Math.round(distanceMeters)}m). Maksimal yang diizinkan adalah ${maxRadius}m.`,
-          }, { status: 400 });
+        if (mockCheck.isMock) {
+          isMock = true;
+          mockReason = mockCheck.reason;
         }
       }
+    }
+
+    // Geofence Policy Evaluation
+    const geofenceRes = evaluateGeofence({
+      effectiveMode: effectiveAttendanceMode,
+      workType,
+      currentLat: Number(latitude || 0),
+      currentLng: Number(longitude || 0),
+      officeLat: employee.location?.latitude,
+      officeLng: employee.location?.longitude,
+      officeRadiusMeters: employee.location?.radiusMeters,
+      policyRadiusMeters: policy?.geofenceRadiusMeters,
+      allowOutsideRadius: policy?.allowOutsideRadius,
+    });
+
+    if (!geofenceRes.isAllowed && policy?.isGpsRequired) {
+      return NextResponse.json({ error: geofenceRes.errorMessage || "Di luar radius geofence kantor." }, { status: 400 });
     }
 
     // 4. Selfie Validation
@@ -186,11 +216,14 @@ export async function POST(req: Request) {
       );
     }
 
-    let noteTags = `[Shift: ${shiftName}] [Mode: ${effectiveAttendanceMode}]`;
-    if (isOutsideAllowed) {
-      noteTags += ` [Luar Radius: ${Math.round(distanceMeters)}m]`;
+    let noteTags = `[Shift: ${shiftName}] ${geofenceRes.noteTag || ""}`;
+    if (isMock) {
+      noteTags += ` [FLAG: ${mockReason || "Fake GPS Terindikasi"}]`;
     }
-    const fullNotes = notes ? `${notes} ${noteTags}` : noteTags;
+    if (accuracyMeters && accuracyMeters > (policy?.maxAllowedAccuracyMeters || 100)) {
+      noteTags += ` [GPS Akurasi Rendah: ±${Math.round(accuracyMeters)}m]`;
+    }
+    const fullNotes = notes ? `${notes} ${noteTags.trim()}` : noteTags.trim();
 
     const record = await db.attendance.upsert({
       where: {
@@ -205,27 +238,33 @@ export async function POST(req: Request) {
         employeeId: session.employeeId,
         date: todayStart,
         checkInTime: now,
-        checkInLatitude: latitude,
-        checkInLongitude: longitude,
+        checkInLatitude: latitude ? Number(latitude) : null,
+        checkInLongitude: longitude ? Number(longitude) : null,
+        checkInAccuracyMeters: accuracyMeters ? Number(accuracyMeters) : null,
+        isCheckInMockLocation: isMock,
         checkInPhotoUrl: photoUrl || "/selfie-mock.jpg",
         checkInAreaPhotoUrl: areaPhotoUrl || null,
-        checkInDistanceMeters: Math.round(distanceMeters),
-        checkInAddress: employee.location?.address || "Kantor Utama",
+        checkInDistanceMeters: geofenceRes.distanceMeters,
+        checkInAddress: employee.location?.address || "Area Kerja",
         status,
         workType,
         attendanceMode: effectiveAttendanceMode,
+        deviceInfo: req.headers.get("user-agent") || null,
         notes: fullNotes,
       },
       update: {
         checkInTime: now,
-        checkInLatitude: latitude,
-        checkInLongitude: longitude,
+        checkInLatitude: latitude ? Number(latitude) : null,
+        checkInLongitude: longitude ? Number(longitude) : null,
+        checkInAccuracyMeters: accuracyMeters ? Number(accuracyMeters) : null,
+        isCheckInMockLocation: isMock,
         checkInPhotoUrl: photoUrl || "/selfie-mock.jpg",
         checkInAreaPhotoUrl: areaPhotoUrl || null,
-        checkInDistanceMeters: Math.round(distanceMeters),
+        checkInDistanceMeters: geofenceRes.distanceMeters,
         status,
         workType,
         attendanceMode: effectiveAttendanceMode,
+        deviceInfo: req.headers.get("user-agent") || null,
         notes: fullNotes,
       },
     });
@@ -275,7 +314,7 @@ export async function POST(req: Request) {
         time: now,
         status,
         shift: shiftName,
-        distanceMeters: Math.round(distanceMeters),
+        distanceMeters: geofenceRes.distanceMeters,
       },
     });
 

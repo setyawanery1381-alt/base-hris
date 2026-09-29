@@ -607,19 +607,23 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
               <span>Lokasi & Geofence GPS</span>
             </span>
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                 isFieldMode
-                  ? "bg-blue-100 text-blue-700"
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                   : isWithinGeofence
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-rose-100 text-rose-700"
+                  ? policy?.allowOutsideRadius && currentDistance > maxRadius
+                    ? "bg-amber-100 text-amber-800 border border-amber-300"
+                    : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  : "bg-rose-100 text-rose-800 border border-rose-300"
               }`}
             >
               {isFieldMode
                 ? `✓ Mode Lapangan Dinamis (${currentDistance}m)`
                 : isWithinGeofence
-                ? `✓ Valid (${currentDistance}m)`
-                : `✗ Luar Radius (${currentDistance}m)`}
+                ? policy?.allowOutsideRadius && currentDistance > maxRadius
+                  ? `⚠️ Luar Radius Ditoleransi (${currentDistance}m)`
+                  : `✓ Valid Dalam Radius (${currentDistance}m)`
+                : `✗ Luar Radius (${currentDistance}m / Max ${maxRadius}m)`}
             </span>
           </div>
 
@@ -637,6 +641,15 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
               <span>{isLocating ? "Mencari GPS..." : "Deteksi GPS Saya"}</span>
             </button>
           </div>
+
+          {accuracyMeters !== null && (
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+              <span>Akurasi GPS: <strong>±{Math.round(accuracyMeters)}m</strong></span>
+              <span className={`text-[10px] font-bold ${accuracyMeters <= 50 ? "text-emerald-600" : accuracyMeters <= 100 ? "text-amber-600" : "text-rose-600"}`}>
+                {accuracyMeters <= 50 ? "✓ Sinyal GPS Kuat" : accuracyMeters <= 100 ? "⚠️ Sinyal Sedang" : "⚠️ Sinyal Lemah"}
+              </span>
+            </div>
+          )}
 
           {/* Development / Testing GPS simulator buttons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
