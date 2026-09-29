@@ -68,6 +68,8 @@ export async function POST(req: Request) {
     let latitude: number | undefined;
     let longitude: number | undefined;
     let photoUrl: string | undefined;
+    let areaPhotoUrl: string | undefined;
+    let accuracyMeters: number | undefined;
     let notes: string | undefined;
 
     try {
@@ -75,6 +77,8 @@ export async function POST(req: Request) {
       latitude = body?.latitude;
       longitude = body?.longitude;
       photoUrl = body?.photoUrl;
+      areaPhotoUrl = body?.areaPhotoUrl;
+      accuracyMeters = body?.accuracyMeters;
       notes = body?.notes;
     } catch {}
 
@@ -174,6 +178,7 @@ export async function POST(req: Request) {
         checkOutLatitude: latitude,
         checkOutLongitude: longitude,
         checkOutPhotoUrl: photoUrl,
+        checkOutAreaPhotoUrl: areaPhotoUrl || null,
         checkOutDistanceMeters: distanceMeters,
         checkOutAddress: employee?.location?.address || "Kantor Utama",
         workDurationMinutes,
@@ -181,6 +186,41 @@ export async function POST(req: Request) {
         notes: updatedNotes || null,
       },
     });
+
+    // Save AttendanceEvidence records for checkout
+    if (photoUrl) {
+      await db.attendanceEvidence.create({
+        data: {
+          companyId: session.companyId,
+          attendanceId: updated.id,
+          type: "CHECKOUT_SELFIE",
+          photoUrl: photoUrl,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          accuracyMeters: accuracyMeters || null,
+          address: employee?.location?.address || "Kantor Utama",
+          watermarkText: `CHECKOUT_SELFIE | ${record.attendanceMode || "OFFICE"} | ${now.toISOString()}`,
+          capturedAt: now,
+        },
+      });
+    }
+
+    if (areaPhotoUrl) {
+      await db.attendanceEvidence.create({
+        data: {
+          companyId: session.companyId,
+          attendanceId: updated.id,
+          type: "CHECKOUT_AREA",
+          photoUrl: areaPhotoUrl,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          accuracyMeters: accuracyMeters || null,
+          address: employee?.location?.address || "Area Selesai Kerja",
+          watermarkText: `CHECKOUT_AREA | ${record.attendanceMode || "OFFICE"} | ${now.toISOString()}`,
+          capturedAt: now,
+        },
+      });
+    }
 
     await recordAuditLog({
       companyId: session.companyId,

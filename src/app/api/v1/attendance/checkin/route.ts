@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { latitude, longitude, photoUrl, workType = "WFO", notes } = body;
+    const { latitude, longitude, photoUrl, areaPhotoUrl, accuracyMeters, workType = "WFO", notes } = body;
 
     const employee = await db.employee.findUnique({
       where: { id: session.employeeId },
@@ -118,8 +118,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // 2b. Determine effective attendanceMode
+    const effectiveAttendanceMode =
+      employee.attendanceMode && employee.attendanceMode !== "INHERIT"
+        ? employee.attendanceMode
+        : policy?.attendanceMode || "OFFICE";
+
     // 3. Geofence & Location Validation
     let distanceMeters = 0;
+    let isOutsideAllowed = false;
+
     if (policy?.isGpsRequired && employee.location) {
       if (latitude === undefined || longitude === undefined) {
         return NextResponse.json({ error: "Koordinat GPS perangkat wajib disertakan." }, { status: 400 });
@@ -133,10 +141,20 @@ export async function POST(req: Request) {
       );
 
       const maxRadius = policy.geofenceRadiusMeters || employee.location.radiusMeters || 100;
-      if (distanceMeters > maxRadius && workType === "WFO") {
-        return NextResponse.json({
-          error: `Anda berada di luar radius kantor (${Math.round(distanceMeters)}m). Maksimal yang diizinkan adalah ${maxRadius}m.`,
-        }, { status: 400 });
+
+      // FIELD attendance is mobile/field work: office geofence restriction waived
+      if (effectiveAttendanceMode === "FIELD") {
+        // Mobile field attendance: GPS coordinates recorded
+      } else if (effectiveAttendanceMode === "HYBRID" && (workType === "FIELD" || workType === "WFH")) {
+        // Hybrid mobile/remote check-in
+      } else if (distanceMeters > maxRadius && workType === "WFO") {
+        if (policy?.allowOutsideRadius) {
+          isOutsideAllowed = true;
+        } else {
+          return NextResponse.json({
+            error: `Anda berada di luar radius kantor (${Math.round(distanceMeters)}m). Maksimal yang diizinkan adalah ${maxRadius}m.`,
+          }, { status: 400 });
+        }
       }
     }
 
@@ -168,6 +186,12 @@ export async function POST(req: Request) {
       );
     }
 
+    let noteTags = `[Shift: ${shiftName}] [Mode: ${effectiveAttendanceMode}]`;
+    if (isOutsideAllowed) {
+      noteTags += ` [Luar Radius: ${Math.round(distanceMeters)}m]`;
+    }
+    const fullNotes = notes ? `${notes} ${noteTags}` : noteTags;
+
     const record = await db.attendance.upsert({
       where: {
         companyId_employeeId_date: {
@@ -184,23 +208,62 @@ export async function POST(req: Request) {
         checkInLatitude: latitude,
         checkInLongitude: longitude,
         checkInPhotoUrl: photoUrl || "/selfie-mock.jpg",
+        checkInAreaPhotoUrl: areaPhotoUrl || null,
         checkInDistanceMeters: Math.round(distanceMeters),
         checkInAddress: employee.location?.address || "Kantor Utama",
         status,
         workType,
-        notes: notes ? `${notes} [Shift: ${shiftName}]` : `[Shift: ${shiftName}]`,
+        attendanceMode: effectiveAttendanceMode,
+        notes: fullNotes,
       },
       update: {
         checkInTime: now,
         checkInLatitude: latitude,
         checkInLongitude: longitude,
         checkInPhotoUrl: photoUrl || "/selfie-mock.jpg",
+        checkInAreaPhotoUrl: areaPhotoUrl || null,
         checkInDistanceMeters: Math.round(distanceMeters),
         status,
         workType,
-        notes: notes ? `${notes} [Shift: ${shiftName}]` : `[Shift: ${shiftName}]`,
+        attendanceMode: effectiveAttendanceMode,
+        notes: fullNotes,
       },
     });
+
+    // Save Photo Evidences into AttendanceEvidence
+    if (photoUrl) {
+      await db.attendanceEvidence.create({
+        data: {
+          companyId: session.companyId,
+          attendanceId: record.id,
+          type: "CHECKIN_SELFIE",
+          photoUrl: photoUrl,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          accuracyMeters: accuracyMeters || null,
+          address: employee.location?.address || "Kantor Utama",
+          watermarkText: `CHECKIN_SELFIE | ${effectiveAttendanceMode} | ${now.toISOString()}`,
+          capturedAt: now,
+        },
+      });
+    }
+
+    if (areaPhotoUrl) {
+      await db.attendanceEvidence.create({
+        data: {
+          companyId: session.companyId,
+          attendanceId: record.id,
+          type: "CHECKIN_AREA",
+          photoUrl: areaPhotoUrl,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          accuracyMeters: accuracyMeters || null,
+          address: employee.location?.address || "Area Kerja Lapangan",
+          watermarkText: `CHECKIN_AREA | ${effectiveAttendanceMode} | ${now.toISOString()}`,
+          capturedAt: now,
+        },
+      });
+    }
 
     await recordAuditLog({
       companyId: session.companyId,

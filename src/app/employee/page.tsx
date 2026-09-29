@@ -22,9 +22,16 @@ import {
   FileCheck,
   HelpCircle,
   Megaphone,
+  CheckCircle2,
+  Briefcase,
+  Navigation,
+  Camera,
+  Eye,
+  X,
 } from "lucide-react";
 import { MobileShell } from "@/components/layout/mobile-shell";
 import { AttendanceModal } from "@/components/employee/attendance-modal";
+import { Modal } from "@/components/ui/modal";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/layout/theme-provider";
@@ -39,6 +46,11 @@ export default function EmployeeMobileDashboard() {
   const [isAttendModalOpen, setIsAttendModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"checkin" | "checkout">("checkin");
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{
+    url: string;
+    title: string;
+    type?: string;
+  } | null>(null);
 
   // Live digital clock ticker
   useEffect(() => {
@@ -80,6 +92,22 @@ export default function EmployeeMobileDashboard() {
   const attendance = todayData?.attendance;
   const isCheckedIn = Boolean(attendance?.checkInTime);
   const isCheckedOut = Boolean(attendance?.checkOutTime);
+  const effectiveMode = todayData?.attendanceMode || "OFFICE";
+
+  // Calculate live or finalized working duration
+  let durationStr = "-";
+  if (isCheckedIn && !isCheckedOut && attendance?.checkInTime) {
+    const diffMs = Math.max(0, currentTime.getTime() - new Date(attendance.checkInTime).getTime());
+    const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+    durationStr = hrs > 0 ? `${hrs}j ${mins}m` : `${mins}m ${secs}d`;
+  } else if (isCheckedOut) {
+    const totalMinutes = attendance?.workingDurationMinutes || todayData?.workingDurationMinutes || 0;
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    durationStr = `${hrs}j ${mins}m`;
+  }
 
   const formattedTimeStr = currentTime.toLocaleTimeString("id-ID", {
     hour: "2-digit",
@@ -155,76 +183,109 @@ export default function EmployeeMobileDashboard() {
           </div>
         </div>
 
-        {/* Floating Attendance Card (Pro-Int Style) */}
+        {/* Floating GET TIME / Work Attendance Card */}
         <div className="px-4 -mt-10 mb-5 relative z-10">
           <div className="bg-white rounded-3xl p-5 shadow-xl border border-slate-100">
+            {/* Header: Mode Badge & Live Date */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">HARI INI</span>
-                <span className="text-[10px] text-slate-400">
-                  {currentTime.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                <span className="text-[11px] font-black text-slate-900 tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                  GET TIME
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  • {currentTime.toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}
                 </span>
               </div>
+              
+              {/* Work Mode Badge */}
               <div
-                className="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border"
-                style={{
-                  backgroundColor: `${theme.primaryColor}15`,
-                  borderColor: `${theme.primaryColor}30`,
-                  color: theme.primaryColor,
-                }}
+                className={`flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                  effectiveMode === "FIELD"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : effectiveMode === "HYBRID"
+                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                }`}
               >
-                <ShieldCheck className="w-3 h-3" />
-                <span>Geofence GPS</span>
+                {effectiveMode === "FIELD" ? (
+                  <>
+                    <Navigation className="w-3 h-3 text-emerald-600" />
+                    <span>LAPANGAN (FIELD)</span>
+                  </>
+                ) : effectiveMode === "HYBRID" ? (
+                  <>
+                    <Laptop className="w-3 h-3 text-sky-600" />
+                    <span>HYBRID WORK</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="w-3 h-3 text-indigo-600" />
+                    <span>WFO / KANTOR</span>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Attendance Status & Live Clock */}
             <div className="py-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-                  Server Time
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Waktu Server Real-Time
                 </p>
-                <p className="text-2xl font-black text-slate-800 font-mono tracking-tight mt-0.5">
+                <p className="text-3xl font-black text-slate-800 font-mono tracking-tight mt-0.5">
                   {formattedTimeStr}
                 </p>
-                <p className="text-[11px] text-slate-500 flex items-center space-x-1 mt-1">
+                <p className="text-[11px] text-slate-500 flex items-center space-x-1 mt-1 font-medium">
                   <MapPin className="w-3 h-3" style={{ color: theme.primaryColor }} />
                   <span className="truncate max-w-[170px]">
-                    {todayData?.officeLocation?.name || "Puri Indah Office"}
+                    {effectiveMode === "FIELD"
+                      ? "Area Kerja Lapangan Dinamis"
+                      : todayData?.officeLocation?.name || "Puri Indah Office"}
                   </span>
                 </p>
-                <div className="mt-1 flex items-center space-x-1">
-                  <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-md border"
-                    style={{
-                      backgroundColor: `${theme.primaryColor}15`,
-                      borderColor: `${theme.primaryColor}30`,
-                      color: theme.primaryColor,
-                    }}
-                  >
-                    {todayData?.isOffDay
-                      ? "Off-Day (Libur)"
-                      : todayData?.shift
-                      ? `${todayData.shift.name} (${todayData.shift.startTime} - ${todayData.shift.endTime})`
-                      : "Shift Kantor"}
-                  </span>
-                </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end">
                 <span className="text-[10px] font-semibold text-slate-400 block mb-1">Status Kehadiran</span>
                 {!isCheckedIn ? (
-                  <Badge variant="neutral" className="font-bold">Belum Absen</Badge>
+                  <Badge variant="neutral" className="font-bold text-[11px] px-2.5 py-1">Belum Check-In</Badge>
                 ) : isCheckedOut ? (
-                  <Badge variant="success" className="font-bold">Sudah Check-Out</Badge>
+                  <Badge variant="success" className="font-bold text-[11px] px-2.5 py-1">Sudah Check-Out</Badge>
                 ) : (
-                  <Badge variant="primary" className="font-bold animate-pulse">Working (In: {checkInTimeStr})</Badge>
+                  <Badge variant="primary" className="font-bold text-[11px] px-2.5 py-1 animate-pulse">
+                    Working (Aktif)
+                  </Badge>
                 )}
-                {isCheckedIn && (
-                  <p className="text-[10px] text-slate-400 mt-1 font-mono">
-                    Masuk: {checkInTimeStr} {checkOutTimeStr ? `| Keluar: ${checkOutTimeStr}` : ""}
-                  </p>
-                )}
+                <span className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                  {todayData?.isOffDay
+                    ? "Off-Day (Libur)"
+                    : todayData?.shift
+                    ? `${todayData.shift.name} (${todayData.shift.startTime} - ${todayData.shift.endTime})`
+                    : "Shift Reguler"}
+                </span>
+              </div>
+            </div>
+
+            {/* 3-Column Metrics: Masuk, Keluar, Durasi Kerja */}
+            <div className="grid grid-cols-3 gap-2 py-3 px-3 rounded-2xl bg-slate-50 border border-slate-100 mb-4 text-center">
+              <div className="border-r border-slate-200/70 pr-1">
+                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Masuk</span>
+                <span className="text-xs font-black text-slate-700 font-mono mt-0.5 block">
+                  {checkInTimeStr || "--:--"}
+                </span>
+              </div>
+              <div className="border-r border-slate-200/70 pr-1">
+                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Keluar</span>
+                <span className="text-xs font-black text-slate-700 font-mono mt-0.5 block">
+                  {checkOutTimeStr || "--:--"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Durasi Kerja</span>
+                <span className={`text-xs font-black font-mono mt-0.5 block ${isCheckedIn && !isCheckedOut ? "text-emerald-600 animate-pulse" : "text-slate-700"}`}>
+                  {durationStr}
+                </span>
               </div>
             </div>
 
@@ -239,10 +300,10 @@ export default function EmployeeMobileDashboard() {
                   backgroundColor: theme.primaryColor,
                   boxShadow: `0 10px 25px -5px ${theme.primaryColor}50`,
                 }}
-                className="w-full py-3.5 rounded-2xl text-white font-extrabold text-sm tracking-wider uppercase shadow-lg flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
+                className="w-full py-3.5 rounded-2xl text-white font-black text-xs tracking-wider uppercase shadow-lg flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
               >
-                <CalendarCheck className="w-5 h-5" />
-                <span>CHECK IN (ABSEN MASUK)</span>
+                <CalendarCheck className="w-4 h-4" />
+                <span>GET TIME • CHECK IN (ABSEN MASUK)</span>
               </button>
             ) : !isCheckedOut ? (
               <button
@@ -250,14 +311,122 @@ export default function EmployeeMobileDashboard() {
                   setModalType("checkout");
                   setIsAttendModalOpen(true);
                 }}
-                className="w-full py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-sm tracking-wider uppercase shadow-lg shadow-rose-700/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
+                className="w-full py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs tracking-wider uppercase shadow-lg shadow-rose-700/25 flex items-center justify-center space-x-2 transition-all active:scale-[0.98] cursor-pointer"
               >
-                <Clock className="w-5 h-5" />
-                <span>CHECK OUT (SELESAI KERJA)</span>
+                <Clock className="w-4 h-4" />
+                <span>GET TIME • CHECK OUT (SELESAI KERJA)</span>
               </button>
             ) : (
-              <div className="w-full py-3 rounded-2xl bg-slate-100 text-slate-500 font-bold text-xs text-center border border-slate-200">
-                ✓ Absensi hari ini telah lengkap
+              <div className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 text-slate-600 font-bold text-xs flex items-center justify-center space-x-2 border border-slate-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Absensi kerja hari ini telah lengkap</span>
+              </div>
+            )}
+
+            {/* Bukti Foto Kehadiran Hari Ini (Selfie & Area) */}
+            {isCheckedIn && (
+              <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Camera className="w-3 h-3 text-indigo-500" />
+                    Bukti Foto Kehadiran ({[attendance?.checkInPhotoUrl, attendance?.checkInAreaPhotoUrl, attendance?.checkOutPhotoUrl, attendance?.checkOutAreaPhotoUrl].filter(Boolean).length})
+                  </span>
+                  <span className="text-[9px] text-indigo-600 font-semibold">Ketuk untuk perbesar</span>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                  {/* Checkin Selfie */}
+                  {attendance?.checkInPhotoUrl && (
+                    <div
+                      onClick={() =>
+                        setSelectedPhotoPreview({
+                          url: attendance.checkInPhotoUrl,
+                          title: "Selfie Check-In Masuk",
+                          type: "CHECKIN_SELFIE",
+                        })
+                      }
+                      className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-indigo-200 relative group cursor-pointer shadow-xs hover:border-indigo-500 transition-all"
+                    >
+                      <img
+                        src={attendance.checkInPhotoUrl}
+                        alt="Checkin Selfie"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5 truncate px-0.5">
+                        In Selfie
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkin Area */}
+                  {attendance?.checkInAreaPhotoUrl && (
+                    <div
+                      onClick={() =>
+                        setSelectedPhotoPreview({
+                          url: attendance.checkInAreaPhotoUrl,
+                          title: "Foto Area Check-In",
+                          type: "CHECKIN_AREA",
+                        })
+                      }
+                      className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-sky-200 relative group cursor-pointer shadow-xs hover:border-sky-500 transition-all"
+                    >
+                      <img
+                        src={attendance.checkInAreaPhotoUrl}
+                        alt="Checkin Area"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5 truncate px-0.5">
+                        In Area
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkout Selfie */}
+                  {attendance?.checkOutPhotoUrl && (
+                    <div
+                      onClick={() =>
+                        setSelectedPhotoPreview({
+                          url: attendance.checkOutPhotoUrl,
+                          title: "Selfie Check-Out Keluar",
+                          type: "CHECKOUT_SELFIE",
+                        })
+                      }
+                      className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-rose-200 relative group cursor-pointer shadow-xs hover:border-rose-500 transition-all"
+                    >
+                      <img
+                        src={attendance.checkOutPhotoUrl}
+                        alt="Checkout Selfie"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5 truncate px-0.5">
+                        Out Selfie
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checkout Area */}
+                  {attendance?.checkOutAreaPhotoUrl && (
+                    <div
+                      onClick={() =>
+                        setSelectedPhotoPreview({
+                          url: attendance.checkOutAreaPhotoUrl,
+                          title: "Foto Area Check-Out",
+                          type: "CHECKOUT_AREA",
+                        })
+                      }
+                      className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 border-amber-200 relative group cursor-pointer shadow-xs hover:border-amber-500 transition-all"
+                    >
+                      <img
+                        src={attendance.checkOutAreaPhotoUrl}
+                        alt="Checkout Area"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] font-bold text-center py-0.5 truncate px-0.5">
+                        Out Area
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -546,7 +715,43 @@ export default function EmployeeMobileDashboard() {
         officeLocation={todayData?.officeLocation}
         todayRecord={attendance}
         onSuccess={loadData}
+        attendanceMode={effectiveMode}
+        employeeName={sessionUser?.name}
+        employeeNumber={sessionUser?.employeeNumber}
       />
+
+      {/* Photo Evidence Viewer Modal */}
+      {selectedPhotoPreview && (
+        <Modal
+          isOpen={Boolean(selectedPhotoPreview)}
+          onClose={() => setSelectedPhotoPreview(null)}
+          title={selectedPhotoPreview.title}
+          maxWidth="md"
+        >
+          <div className="space-y-3">
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 shadow-inner flex items-center justify-center">
+              <img
+                src={selectedPhotoPreview.url}
+                alt={selectedPhotoPreview.title}
+                className="w-full h-auto max-h-[65vh] object-contain mx-auto"
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+              <span className="flex items-center gap-1.5 font-bold text-emerald-600">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Bukti Foto Terwatermark & Terverifikasi</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoPreview(null)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-all"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </MobileShell>
   );
 }

@@ -22,6 +22,7 @@ export async function GET() {
         checkInTime: { not: null },
         checkOutTime: null,
       },
+      include: { evidence: true },
       orderBy: { checkInTime: "desc" },
     });
 
@@ -42,6 +43,7 @@ export async function GET() {
             { checkInTime: { gte: new Date(Date.now() - 20 * 60 * 60 * 1000) } },
           ],
         },
+        include: { evidence: true },
         orderBy: { createdAt: "desc" },
       });
     }
@@ -140,8 +142,27 @@ export async function GET() {
       };
     }
 
+    // 6. Calculate effective attendanceMode & real-time working duration
+    const effectiveAttendanceMode =
+      employee?.attendanceMode && employee.attendanceMode !== "INHERIT"
+        ? employee.attendanceMode
+        : policy?.attendanceMode || "OFFICE";
+
+    let workingDurationMinutes = 0;
+    if (attendance?.checkInTime) {
+      if (attendance.checkOutTime) {
+        workingDurationMinutes = attendance.workDurationMinutes || 0;
+      } else {
+        const checkInDate = new Date(attendance.checkInTime);
+        workingDurationMinutes = Math.max(
+          1,
+          Math.round((now.getTime() - checkInDate.getTime()) / (1000 * 60))
+        );
+      }
+    }
+
     return NextResponse.json({
-      serverTime: new Date().toISOString(),
+      serverTime: now.toISOString(),
       attendance,
       policy,
       officeLocation: employee?.location,
@@ -149,6 +170,8 @@ export async function GET() {
       shift: effectiveShift,
       isOffDay,
       checkInWindow,
+      attendanceMode: effectiveAttendanceMode,
+      workingDurationMinutes,
     });
   } catch (err: any) {
     console.error("Today Attendance Error:", err);

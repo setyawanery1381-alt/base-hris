@@ -10,9 +10,13 @@ import {
   RotateCcw,
   RefreshCw,
   Crosshair,
+  SwitchCamera,
+  Image as ImageIcon,
+  CheckCircle2,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { captureWithWatermark } from "@/lib/watermark";
 
 interface AttendanceModalProps {
   isOpen: boolean;
@@ -22,6 +26,9 @@ interface AttendanceModalProps {
   officeLocation: any;
   todayRecord: any;
   onSuccess: () => void;
+  attendanceMode?: string;
+  employeeName?: string;
+  employeeNumber?: string;
 }
 
 function computeDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -45,6 +52,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   officeLocation,
   todayRecord,
   onSuccess,
+  attendanceMode,
+  employeeName,
+  employeeNumber,
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const defaultLat = officeLocation?.latitude || -6.189099;
@@ -52,10 +62,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 
   const [latitude, setLatitude] = useState(defaultLat);
   const [longitude, setLongitude] = useState(defaultLng);
+  const [accuracyMeters, setAccuracyMeters] = useState<number | null>(null);
   const [isOutside, setIsOutside] = useState(false);
-  const [workType, setWorkType] = useState<"WFO" | "WFH">("WFO");
+  const [workType, setWorkType] = useState<"WFO" | "WFH" | "FIELD">("WFO");
 
-  const [photoData, setPhotoData] = useState<string | null>(null);
+  // Dual-Photo State: Selfie (wajib) & Area/Activity (opsional/rekomendasi lapangan)
+  const [activePhotoTab, setActivePhotoTab] = useState<"selfie" | "area">("selfie");
+  const [selfiePhoto, setSelfiePhoto] = useState<string | null>(null);
+  const [areaPhoto, setAreaPhoto] = useState<string | null>(null);
+
+  // Camera Controls
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
@@ -75,7 +92,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 
   const currentDistance = computeDistance(latitude, longitude, defaultLat, defaultLng);
   const maxRadius = policy?.geofenceRadiusMeters || 150;
-  const isWithinGeofence = currentDistance <= maxRadius;
+  const effectiveMode = attendanceMode || policy?.attendanceMode || "OFFICE";
+  const isFieldMode = effectiveMode === "FIELD";
+  const isWithinGeofence = isFieldMode || currentDistance <= maxRadius || Boolean(policy?.allowOutsideRadius);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -91,9 +110,11 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     setIsStartingCamera(false);
   };
 
-  const startCamera = async () => {
+  const startCamera = async (preferredFacing?: "user" | "environment") => {
     setCameraError(null);
     setIsStartingCamera(true);
+
+    const modeToUse = preferredFacing || facingMode;
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -102,7 +123,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 
     try {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        setCameraError("Browser ini tidak mendukung akses kamera.");
+        setCameraError("Browser ini tidak mendukung akses kamera langsung.");
         setIsStartingCamera(false);
         return;
       }
@@ -110,12 +131,17 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
+          video: {
+            facingMode: modeToUse,
+            width: { ideal: 1080 },
+            height: { ideal: 1440 },
+          },
           audio: false,
         });
       } catch (e) {
+        // Fallback without constraints
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
+          video: { facingMode: modeToUse },
           audio: false,
         });
       }
@@ -142,88 +168,92 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       setIsStartingCamera(false);
       setIsCameraActive(false);
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setCameraError("Izin kamera ditolak. Silakan klik ikon gembok di samping alamat web untuk mengizinkan kamera.");
+        setCameraError("Izin kamera ditolak. Silakan izinkan akses kamera di peramban Anda.");
       } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
         setCameraError("Kamera tidak ditemukan pada perangkat ini.");
-      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-        setCameraError("Kamera sedang digunakan oleh aplikasi lain.");
       } else {
-        setCameraError("Gagal menyalakan kamera: " + (err.message || "Kesalahan tidak diketahui"));
+        setCameraError("Gagal menyalakan kamera: " + (err.message || "Kesalahan peramban"));
       }
     }
   };
 
-  useEffect(() => {
-    if (videoRef.current && streamRef.current && !photoData) {
-      const video = videoRef.current;
-      if (video.srcObject !== streamRef.current) {
-        video.srcObject = streamRef.current;
-        video.muted = true;
-        video.setAttribute("playsinline", "true");
-        video.setAttribute("webkit-playsinline", "true");
-        video.play().catch(() => {});
-      }
+  // Switch facing mode (Front vs Rear)
+  const toggleCameraFacing = () => {
+    const nextFacing = facingMode === "user" ? "environment" : "user";
+    setFacingMode(nextFacing);
+    startCamera(nextFacing);
+  };
+
+  // Switch active tab (Selfie vs Area)
+  const switchPhotoTab = (tab: "selfie" | "area") => {
+    setActivePhotoTab(tab);
+    const targetFacing = tab === "selfie" ? "user" : "environment";
+    setFacingMode(targetFacing);
+    const currentPhoto = tab === "selfie" ? selfiePhoto : areaPhoto;
+    if (!currentPhoto) {
+      startCamera(targetFacing);
     }
-  }, [isCameraActive, photoData]);
+  };
 
   useEffect(() => {
     if (isOpen) {
       setError("");
       setSuccessMsg("");
-      setPhotoData(null);
-      if (policy?.isSelfieRequired !== false) {
-        startCamera();
-      }
+      setSelfiePhoto(null);
+      setAreaPhoto(null);
+      setActivePhotoTab("selfie");
+      setFacingMode("user");
+      startCamera("user");
     } else {
       stopCamera();
     }
     return () => {
       stopCamera();
     };
-  }, [isOpen, policy?.isSelfieRequired]);
+  }, [isOpen]);
 
   const capturePhoto = () => {
     if (!videoRef.current) return;
     try {
-      const video = videoRef.current;
-      const width = video.videoWidth || 640;
-      const height = video.videoHeight || 480;
-      const canvas = document.createElement("canvas");
-      const targetWidth = Math.min(width, 640);
-      const targetHeight = Math.round((height / width) * targetWidth);
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      const isFront = facingMode === "user";
+      const catTitle = activePhotoTab === "selfie"
+        ? (type === "checkin" ? "CHECK-IN SELFIE" : "CHECK-OUT SELFIE")
+        : (type === "checkin" ? "CHECK-IN AREA KERJA" : "CHECK-OUT AREA KERJA");
 
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const compressedBase64 = captureWithWatermark(videoRef.current, {
+        appName: "BASE HRIS",
+        categoryTitle: catTitle,
+        mode: effectiveMode,
+        employeeName: employeeName || "Karyawan",
+        employeeId: employeeNumber || undefined,
+        latitude,
+        longitude,
+        accuracyMeters: accuracyMeters || undefined,
+        address: officeLocation?.name || (isFieldMode ? "Area Lapangan Dinamis" : "Puri Indah Office"),
+        timestamp: new Date(),
+        isFrontCamera: isFront,
+      });
 
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-        ctx.fillRect(0, canvas.height - 24, canvas.width, 24);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "11px monospace";
-        ctx.fillText(
-          new Date().toLocaleTimeString("id-ID") + " | " + latitude.toFixed(4) + ", " + longitude.toFixed(4),
-          8,
-          canvas.height - 8
-        );
-
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
-        setPhotoData(dataUrl);
-        stopCamera();
+      if (activePhotoTab === "selfie") {
+        setSelfiePhoto(compressedBase64);
+      } else {
+        setAreaPhoto(compressedBase64);
       }
-    } catch (err) {
+
+      stopCamera();
+    } catch (err: any) {
       console.error("Capture photo error:", err);
-      setError("Gagal mengambil foto.");
+      setError("Gagal memproses foto dan watermark: " + err.message);
     }
   };
 
   const retakePhoto = () => {
-    setPhotoData(null);
-    startCamera();
+    if (activePhotoTab === "selfie") {
+      setSelfiePhoto(null);
+    } else {
+      setAreaPhoto(null);
+    }
+    startCamera(facingMode);
   };
 
   const detectCurrentLocation = () => {
@@ -236,6 +266,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       (pos) => {
         setLatitude(pos.coords.latitude);
         setLongitude(pos.coords.longitude);
+        setAccuracyMeters(pos.coords.accuracy);
         setIsLocating(false);
       },
       (err) => {
@@ -258,8 +289,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (type === "checkin" && policy?.isSelfieRequired !== false && !photoData) {
-      setError("Silakan ambil foto selfie wajah terlebih dahulu!");
+    if (policy?.isSelfieRequired !== false && !selfiePhoto) {
+      setError("Foto selfie wajah wajib diambil untuk validasi bukti absensi!");
+      setActivePhotoTab("selfie");
       return;
     }
 
@@ -275,8 +307,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
         body: JSON.stringify({
           latitude,
           longitude,
-          photoUrl: photoData || undefined,
-          workType,
+          accuracyMeters,
+          photoUrl: selfiePhoto || undefined,
+          areaPhotoUrl: areaPhoto || undefined,
+          workType: isFieldMode ? "FIELD" : workType,
         }),
       });
 
@@ -287,7 +321,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
         return;
       }
 
-      setSuccessMsg(data.message || "Absensi berhasil dicatat!");
+      setSuccessMsg(data.message || "Absensi & bukti foto berhasil diverifikasi!");
       setTimeout(() => {
         setIsLoading(false);
         stopCamera();
@@ -312,6 +346,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     second: "2-digit",
   });
 
+  const activePhoto = activePhotoTab === "selfie" ? selfiePhoto : areaPhoto;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -319,245 +355,350 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
         stopCamera();
         onClose();
       }}
-      title={type === "checkin" ? "Rekam Kehadiran (Check-In)" : "Selesai Kerja (Check-Out)"}
+      title={type === "checkin" ? "GET TIME: Rekam Check-In Kerja" : "GET TIME: Rekam Check-Out Kerja"}
       maxWidth="md"
     >
       <div className="space-y-4">
-        {/* Server Time Card */}
-        <div className="bg-gradient-to-r from-teal-700 to-teal-900 rounded-2xl p-4 text-white shadow-md text-center relative overflow-hidden">
-          <div className="absolute top-2 right-2 flex items-center space-x-1 px-2 py-0.5 rounded-full bg-white/20 text-[10px] backdrop-blur-sm">
-            <ShieldCheck className="w-3 h-3 text-emerald-300" />
-            <span>Server Time</span>
+        {/* Server Time & Mode Badge Card */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 text-white shadow-md text-center relative overflow-hidden">
+          <div className="absolute top-2 right-2 flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] font-bold backdrop-blur-sm border border-white/20">
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            <span>{effectiveMode} MODE</span>
           </div>
-          <p className="text-xs text-teal-200 mt-1">{formattedDate}</p>
+          <p className="text-xs text-indigo-200 mt-1">{formattedDate}</p>
           <p className="text-3xl font-black tracking-tight my-1 font-mono">{formattedTime}</p>
-          <div className="flex items-center justify-center space-x-1 text-[11px] text-teal-200/90 font-mono">
-            <MapPin className="w-3 h-3" />
-            <span>{latitude.toFixed(6)}, {longitude.toFixed(6)}</span>
+          <div className="flex items-center justify-center space-x-1 text-[11px] text-indigo-300 font-mono">
+            <MapPin className="w-3 h-3 text-indigo-400" />
+            <span>
+              {latitude.toFixed(6)}, {longitude.toFixed(6)}
+              {accuracyMeters ? ` (±${Math.round(accuracyMeters)}m)` : ""}
+            </span>
           </div>
         </div>
 
-        {/* Alerts */}
         {error && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center space-x-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">{successMsg}</span>
           </div>
         )}
 
-        {/* REAL CAMERA SELFIE SECTION */}
-        {(type === "checkin" || policy?.isSelfieRequired) && (
-          <div className="bg-slate-900 rounded-2xl p-3.5 text-white relative overflow-hidden shadow-lg border border-slate-800">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
-                <Camera className="w-3.5 h-3.5 text-teal-400" />
-                <span>Kamera Verifikasi Wajah</span>
-              </span>
-              {isCameraActive && !photoData && (
-                <span className="flex items-center space-x-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800/50">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>LIVE CAMERA</span>
-                </span>
-              )}
-            </div>
-
-            {/* Video Viewport / Photo Preview */}
-            <div className="relative w-full aspect-[4/3] max-h-64 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-700 shadow-inner">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                onLoadedMetadata={() => {
-                  videoRef.current?.play().catch(() => {});
-                }}
-                className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-200 ${
-                  !photoData && isCameraActive ? "opacity-100 block" : "opacity-0 hidden pointer-events-none"
+        {/* DUAL PHOTO EVIDENCE TABS */}
+        <div className="bg-slate-900 rounded-2xl p-3.5 text-white relative overflow-hidden shadow-lg border border-slate-800">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <div className="flex space-x-1.5">
+              <button
+                type="button"
+                onClick={() => switchPhotoTab("selfie")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  activePhotoTab === "selfie"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "bg-slate-800 text-slate-400 hover:text-slate-200"
                 }`}
-              />
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>1. Selfie Wajah</span>
+                {selfiePhoto && <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-0.5" />}
+              </button>
 
-              {/* Face outline guide over live video */}
-              {!photoData && isCameraActive && (
-                <>
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-36 h-48 rounded-[50%] border-2 border-dashed border-teal-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
-                  </div>
-                  <div className="absolute bottom-2.5 inset-x-0 text-center pointer-events-none">
-                    <span className="bg-black/70 text-teal-200 text-[10px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
-                      Posisikan wajah Anda di dalam lingkaran
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {/* Captured Photo Preview */}
-              {photoData && (
-                <div className="relative w-full h-full">
-                  <img
-                    src={photoData}
-                    alt="Hasil Foto Selfie"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2.5 right-2.5 bg-emerald-600 text-white rounded-full px-2.5 py-1 shadow-lg flex items-center space-x-1 text-[11px] font-bold">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Foto Siap</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Loading or Error Fallback when camera is not ready */}
-              {!photoData && !isCameraActive && (
-                <div className="p-4 flex flex-col items-center justify-center text-center space-y-2.5">
-                  {cameraError ? (
-                    <>
-                      <AlertCircle className="w-8 h-8 text-rose-400" />
-                      <p className="text-xs text-rose-200 max-w-xs">{cameraError}</p>
-                      <button
-                        type="button"
-                        onClick={startCamera}
-                        className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold shadow active:scale-95 transition-all"
-                      >
-                        Nyalakan Ulang Kamera
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-8 h-8 text-teal-400 animate-spin" />
-                      <p className="text-xs text-slate-300">Menghubungkan ke kamera...</p>
-                      <button
-                        type="button"
-                        onClick={startCamera}
-                        className="text-[11px] text-teal-400 underline"
-                      >
-                        Klik di sini jika kamera belum menyala
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => switchPhotoTab("area")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  activePhotoTab === "area"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>2. Area / Lokasi</span>
+                {areaPhoto && <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-0.5" />}
+              </button>
             </div>
 
-            {/* Controls Bar: Shutter & Retake ONLY (No Pilih Foto) */}
-            <div className="mt-3 flex items-center justify-center gap-2">
-              {!photoData && isCameraActive && (
-                <button
-                  type="button"
-                  onClick={capturePhoto}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-teal-500/25 active:scale-95 transition-all"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>Ambil Foto Selfie</span>
-                </button>
-              )}
+            {/* Switch Camera Button (Front / Rear) */}
+            {!activePhoto && isCameraActive && (
+              <button
+                type="button"
+                onClick={toggleCameraFacing}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all border border-slate-700 flex items-center space-x-1 text-[10px] font-semibold"
+                title="Ganti Kamera Depan / Belakang"
+              >
+                <SwitchCamera className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">
+                  {facingMode === "user" ? "Kamera Depan" : "Kamera Belakang"}
+                </span>
+              </button>
+            )}
+          </div>
 
-              {photoData && (
-                <button
-                  type="button"
-                  onClick={retakePhoto}
-                  className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700 active:scale-95 transition-all"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Foto Ulang</span>
-                </button>
-              )}
+          {/* Video Viewport / Photo Preview */}
+          <div className="relative w-full aspect-[4/3] max-h-64 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-700 shadow-inner">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover transition-opacity duration-200 ${
+                facingMode === "user" ? "scale-x-[-1]" : ""
+              } ${
+                !activePhoto && isCameraActive ? "opacity-100 block" : "opacity-0 hidden pointer-events-none"
+              }`}
+            />
+
+            {/* Guides on Live Video */}
+            {!activePhoto && isCameraActive && activePhotoTab === "selfie" && (
+              <>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-36 h-48 rounded-[50%] border-2 border-dashed border-indigo-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
+                </div>
+                <div className="absolute bottom-2.5 inset-x-0 text-center pointer-events-none">
+                  <span className="bg-black/75 text-indigo-200 text-[10px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                    Posisikan wajah Anda di dalam lingkaran panduan
+                  </span>
+                </div>
+              </>
+            )}
+
+            {!activePhoto && isCameraActive && activePhotoTab === "area" && (
+              <div className="absolute bottom-2.5 inset-x-0 text-center pointer-events-none">
+                <span className="bg-black/75 text-sky-200 text-[10px] font-medium px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                  Arahkan kamera ke area storefront, kantor, atau lokasi kerja
+                </span>
+              </div>
+            )}
+
+            {/* Captured Photo Preview with Embedded Watermark */}
+            {activePhoto && (
+              <div className="relative w-full h-full">
+                <img
+                  src={activePhoto}
+                  alt="Bukti Foto Terwatermark"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2.5 right-2.5 bg-emerald-600/90 backdrop-blur-md text-white rounded-full px-2.5 py-1 shadow-lg flex items-center space-x-1 text-[11px] font-bold border border-emerald-400/40">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Watermarked & Siap</span>
+                </div>
+              </div>
+            )}
+
+            {/* Camera Loading or Error State */}
+            {!activePhoto && !isCameraActive && (
+              <div className="p-4 flex flex-col items-center justify-center text-center space-y-2.5">
+                {cameraError ? (
+                  <>
+                    <AlertCircle className="w-8 h-8 text-rose-400" />
+                    <p className="text-xs text-rose-200 max-w-xs">{cameraError}</p>
+                    <button
+                      type="button"
+                      onClick={() => startCamera(facingMode)}
+                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow active:scale-95 transition-all"
+                    >
+                      Nyalakan Ulang Kamera
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                    <p className="text-xs text-slate-300">Menghubungkan ke kamera perangkat...</p>
+                    <button
+                      type="button"
+                      onClick={() => startCamera(facingMode)}
+                      className="text-[11px] text-indigo-400 underline"
+                    >
+                      Klik di sini jika kamera belum aktif
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Controls Bar: Shutter & Retake */}
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {!activePhoto && isCameraActive && (
+              <button
+                type="button"
+                onClick={capturePhoto}
+                className="flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-teal-500 hover:from-indigo-600 hover:to-teal-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/25 active:scale-95 transition-all cursor-pointer"
+              >
+                <Camera className="w-4 h-4" />
+                <span>
+                  {activePhotoTab === "selfie" ? "Ambil Foto Selfie Wajah" : "Ambil Foto Area Kerja"}
+                </span>
+              </button>
+            )}
+
+            {activePhoto && (
+              <button
+                type="button"
+                onClick={retakePhoto}
+                className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700 active:scale-95 transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Foto Ulang ({activePhotoTab === "selfie" ? "Selfie" : "Area"})</span>
+              </button>
+            )}
+          </div>
+
+          {/* Summary Thumbnails Checklist */}
+          <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-slate-800/80 text-[10px]">
+            <div
+              onClick={() => switchPhotoTab("selfie")}
+              className={`p-2 rounded-xl flex items-center space-x-2 cursor-pointer transition-all border ${
+                selfiePhoto
+                  ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
+                  : "bg-slate-800/60 border-slate-700 text-slate-400"
+              }`}
+            >
+              <div className="w-7 h-7 rounded-lg bg-black/40 overflow-hidden flex items-center justify-center shrink-0 border border-white/10">
+                {selfiePhoto ? (
+                  <img src={selfiePhoto} alt="Thumb" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-3.5 h-3.5" />
+                )}
+              </div>
+              <div className="truncate">
+                <p className="font-bold text-slate-200">Selfie Wajah</p>
+                <p className={selfiePhoto ? "text-emerald-400" : "text-amber-400"}>
+                  {selfiePhoto ? "✓ Siap" : "* Wajib"}
+                </p>
+              </div>
+            </div>
+
+            <div
+              onClick={() => switchPhotoTab("area")}
+              className={`p-2 rounded-xl flex items-center space-x-2 cursor-pointer transition-all border ${
+                areaPhoto
+                  ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-300"
+                  : "bg-slate-800/60 border-slate-700 text-slate-400"
+              }`}
+            >
+              <div className="w-7 h-7 rounded-lg bg-black/40 overflow-hidden flex items-center justify-center shrink-0 border border-white/10">
+                {areaPhoto ? (
+                  <img src={areaPhoto} alt="Thumb" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-3.5 h-3.5" />
+                )}
+              </div>
+              <div className="truncate">
+                <p className="font-bold text-slate-200">Foto Area</p>
+                <p className={areaPhoto ? "text-emerald-400" : "text-slate-400"}>
+                  {areaPhoto ? "✓ Siap" : "Opsional / Lapangan"}
+                </p>
+              </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* GPS Geofence Card */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
-              <Navigation className="w-3.5 h-3.5 text-teal-600" />
-              <span>Lokasi & Geofence (Radius: {maxRadius}m)</span>
+              <Navigation className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Lokasi & Geofence GPS</span>
             </span>
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                isWithinGeofence ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                isFieldMode
+                  ? "bg-blue-100 text-blue-700"
+                  : isWithinGeofence
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-rose-100 text-rose-700"
               }`}
             >
-              {isWithinGeofence ? `? Valid (${currentDistance}m)` : `? Luar Radius (${currentDistance}m)`}
+              {isFieldMode
+                ? `✓ Mode Lapangan Dinamis (${currentDistance}m)`
+                : isWithinGeofence
+                ? `✓ Valid (${currentDistance}m)`
+                : `✗ Luar Radius (${currentDistance}m)`}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-slate-500">
-            <span>Kantor: <strong>{officeLocation?.name || "Puri Indah, Jakarta"}</strong></span>
+            <span>
+              Kantor / Area: <strong>{officeLocation?.name || "Puri Indah Office"}</strong>
+            </span>
             <button
               type="button"
               onClick={detectCurrentLocation}
               disabled={isLocating}
-              className="flex items-center space-x-1 text-teal-700 hover:text-teal-800 font-semibold disabled:opacity-50"
+              className="flex items-center space-x-1 text-indigo-700 hover:text-indigo-800 font-semibold disabled:opacity-50 cursor-pointer"
             >
               <Crosshair className={`w-3 h-3 ${isLocating ? "animate-spin" : ""}`} />
               <span>{isLocating ? "Mencari GPS..." : "Deteksi GPS Saya"}</span>
             </button>
           </div>
 
+          {/* Development / Testing GPS simulator buttons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
               onClick={() => toggleLocationSimulation(false)}
-              className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border text-center transition-all ${
+              className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border text-center transition-all cursor-pointer ${
                 isWithinGeofence
-                  ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                   : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
               }`}
             >
-              ?? Di Kantor (0m)
+              📍 Di Radius Kantor (0m)
             </button>
             <button
               type="button"
               onClick={() => toggleLocationSimulation(true)}
-              className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border text-center transition-all ${
+              className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border text-center transition-all cursor-pointer ${
                 !isWithinGeofence
                   ? "bg-rose-600 text-white border-rose-600 shadow-sm"
                   : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
               }`}
             >
-              ?? Luar Kantor (5km)
+              📍 Luar Kantor (5km)
             </button>
           </div>
         </div>
 
         {/* Work Type Selection */}
-        <div className="flex items-center justify-between pt-1">
-          <label className="text-xs font-semibold text-slate-700">Tipe Kehadiran:</label>
-          <div className="flex space-x-2">
-            {(["WFO", "WFH"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setWorkType(t)}
-                className={`px-3.5 py-1 rounded-xl text-xs font-bold border transition-colors ${
-                  workType === t
-                    ? "bg-teal-700 text-white border-teal-700 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+        {!isFieldMode && (
+          <div className="flex items-center justify-between pt-1">
+            <label className="text-xs font-semibold text-slate-700">Tipe Kehadiran:</label>
+            <div className="flex space-x-2">
+              {(["WFO", "WFH"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setWorkType(t)}
+                  className={`px-3.5 py-1 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                    workType === t
+                      ? "bg-indigo-700 text-white border-indigo-700 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Action Button */}
         <Button
           onClick={handleSubmit}
           isLoading={isLoading}
-          className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all ${
+          className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all cursor-pointer ${
             type === "checkin"
-              ? "bg-teal-600 hover:bg-teal-700 text-white shadow-teal-700/25"
+              ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-700/25"
               : "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-700/25"
           }`}
         >
-          {type === "checkin" ? "KIRIM ABSEN MASUK" : "KIRIM ABSEN KELUAR"}
+          {type === "checkin" ? "GET TIME • KIRIM CHECK-IN" : "GET TIME • KIRIM CHECK-OUT"}
         </Button>
       </div>
     </Modal>
